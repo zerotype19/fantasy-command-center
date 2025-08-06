@@ -1,5 +1,12 @@
 import { DatabaseService } from '../utils/db';
-import { fetchAllPlayers, filterPlayersForDevelopment, validatePlayer, transformSleeperPlayer, fetchTrendingPlayers } from '../services/sleeper';
+import { 
+  fetchAllPlayers, 
+  filterPlayersForDevelopment, 
+  validatePlayer, 
+  transformSleeperPlayer, 
+  fetchTrendingPlayers,
+  fetchAllPlayersComplete
+} from '../services/sleeper';
 
 export class PlayersHandler {
   private db: DatabaseService;
@@ -63,16 +70,13 @@ export class PlayersHandler {
       console.log('Starting Sleeper players sync...');
 
       // Fetch all players from Sleeper API
-      const sleeperPlayers = await fetchAllPlayers();
-      
-      // Filter for development (active players, limited positions, ~200 players)
-      const filteredPlayers = filterPlayersForDevelopment(sleeperPlayers);
+      const players = await fetchAllPlayersComplete();
       
       // Transform Sleeper data to our database format
       const playersToInsert: any[] = [];
       let skippedCount = 0;
       
-      for (const player of filteredPlayers) {
+      for (const player of players) {
         // Validate required fields
         const validation = validatePlayer(player);
         if (!validation.isValid) {
@@ -121,12 +125,11 @@ export class PlayersHandler {
       const url = new URL(request.url);
       const type = url.searchParams.get('type') as 'add' | 'drop' || 'add';
       const lookbackHours = parseInt(url.searchParams.get('lookback_hours') || '24');
-      const limit = parseInt(url.searchParams.get('limit') || '25');
 
       console.log(`Fetching trending players (${type}) from Sleeper...`);
 
       // Fetch trending players from Sleeper API
-      const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours, limit);
+      const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
 
       // Get player details for trending players
       const playerDetails = await this.db.getPlayersBySleeperIds(
@@ -147,7 +150,6 @@ export class PlayersHandler {
           success: true,
           type,
           lookback_hours: lookbackHours,
-          limit,
           players: enrichedTrendingPlayers
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -232,70 +234,69 @@ export class PlayersHandler {
       );
     }
   }
-} 
 
-export async function handleSyncTrendingPlayers(request: Request, db: any): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const type = url.searchParams.get('type') || 'add';
-    const lookbackHours = parseInt(url.searchParams.get('lookback_hours') || '24');
-    const limit = parseInt(url.searchParams.get('limit') || '10');
+  async handleSyncTrendingPlayers(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const type = url.searchParams.get('type') || 'add';
+      const lookbackHours = parseInt(url.searchParams.get('lookback_hours') || '24');
 
-    console.log(`Starting trending players sync for type: ${type}, lookback: ${lookbackHours}h, limit: ${limit}`);
+      console.log(`Starting trending players sync for type: ${type}, lookback: ${lookbackHours}h`);
 
-    // Fetch trending players from Sleeper
-    const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours, limit);
-    
-    if (!trendingPlayers || trendingPlayers.length === 0) {
+      // Fetch trending players from Sleeper
+      const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
+      
+      if (!trendingPlayers || trendingPlayers.length === 0) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: 'No trending players found'
+        }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Store trending players in database
+      await upsertTrendingPlayers(this.db.db, trendingPlayers, type, lookbackHours);
+
+      console.log(`Successfully synced ${trendingPlayers.length} trending players`);
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Synced ${trendingPlayers.length} trending players`,
+        data: {
+          type,
+          lookback_hours: lookbackHours,
+          count: trendingPlayers.length,
+          players: trendingPlayers
+        }
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+    } catch (error) {
+      console.error('Error syncing trending players:', error);
+      
+      let errorMessage = 'Failed to sync trending players';
+      if (error instanceof Error) {
+        if (error.message.includes('429')) {
+          errorMessage = 'Sleeper API rate limited — please try again shortly.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       return new Response(JSON.stringify({
         success: false,
-        message: 'No trending players found'
+        message: errorMessage
       }), {
-        status: 404,
+        status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-
-    // Store trending players in database
-    await upsertTrendingPlayers(db, trendingPlayers, type, lookbackHours);
-
-    console.log(`Successfully synced ${trendingPlayers.length} trending players`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: `Synced ${trendingPlayers.length} trending players`,
-      data: {
-        type,
-        lookback_hours: lookbackHours,
-        count: trendingPlayers.length,
-        players: trendingPlayers
-      }
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('Error syncing trending players:', error);
-    
-    let errorMessage = 'Failed to sync trending players';
-    if (error instanceof Error) {
-      if (error.message.includes('429')) {
-        errorMessage = 'Sleeper API rate limited — please try again shortly.';
-      } else {
-        errorMessage = error.message;
-      }
-    }
-
-    return new Response(JSON.stringify({
-      success: false,
-      message: errorMessage
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
   }
-}
+} 
 
 export async function handleGetTrendingPlayers(request: Request, db: any): Promise<Response> {
   try {

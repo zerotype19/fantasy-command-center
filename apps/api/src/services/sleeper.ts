@@ -106,10 +106,9 @@ export async function fetchAllPlayers(): Promise<SleeperPlayersResponse> {
 // Fetch trending players (adds or drops)
 export async function fetchTrendingPlayers(
   type: 'add' | 'drop' = 'add',
-  lookbackHours: number = 24,
-  limit: number = 25
+  lookbackHours: number = 24
 ): Promise<TrendingPlayer[]> {
-  const url = `${SLEEPER_BASE_URL}/players/nfl/trending/${type}?lookback_hours=${lookbackHours}&limit=${limit}`;
+  const url = `${SLEEPER_BASE_URL}/players/nfl/trending/${type}?lookback_hours=${lookbackHours}`;
   
   try {
     const response = await fetch(url);
@@ -130,6 +129,21 @@ export async function fetchTrendingPlayers(
     }
     throw new Error('Failed to fetch trending players from Sleeper');
   }
+}
+
+// Fetch all players without development filtering
+export async function fetchAllPlayersComplete(): Promise<SleeperPlayer[]> {
+  const players = await fetchAllPlayers();
+  const allPlayers: SleeperPlayer[] = [];
+  
+  for (const [playerId, player] of Object.entries(players)) {
+    // Only include active players
+    if (!player.active) continue;
+    
+    allPlayers.push(player);
+  }
+  
+  return allPlayers;
 }
 
 // Filter and limit players for development

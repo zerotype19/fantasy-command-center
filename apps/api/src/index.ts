@@ -4,6 +4,17 @@ import { LeagueHandler } from './handlers/league';
 import { PlayersHandler } from './handlers/players';
 import { AlertsHandler } from './handlers/alerts';
 import { TeamHandler } from './handlers/team';
+import { 
+  fetchAllPlayers, 
+  filterPlayersForDevelopment, 
+  validatePlayer, 
+  transformSleeperPlayer, 
+  fetchTrendingPlayers,
+  fetchAllPlayersComplete
+} from './services/sleeper';
+import { 
+  upsertTrendingPlayers 
+} from './utils/db';
 
 // Cloudflare Workers types
 interface ExecutionContext {
@@ -165,25 +176,47 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log('Running scheduled ingestion job...');
+    console.log('Running daily Sleeper API sync job...');
     
     try {
       // Initialize services
       const db = new DatabaseService(env.DB);
 
-      // 1. Refresh player data from Sleeper (placeholder for now)
-      console.log('Refreshing player data from Sleeper...');
-      // TODO: Implement Sleeper player sync
+      // 1. Sync all players from Sleeper API
+      console.log('Syncing all players from Sleeper API...');
+      const players = await fetchAllPlayersComplete();
+      
+      const validPlayers = [];
+      for (const player of players) {
+        if (validatePlayer(player)) {
+          const transformedPlayer = transformSleeperPlayer(player);
+          validPlayers.push(transformedPlayer);
+        }
+      }
+      
+      if (validPlayers.length > 0) {
+        await db.upsertSleeperPlayers(validPlayers);
+      }
+      console.log(`Successfully synced ${validPlayers} players from Sleeper API`);
 
-      // 2. Refresh injury/news from ESPN (placeholder for now)
-      console.log('Refreshing injury/news from ESPN...');
-      // TODO: Implement ESPN injury/news sync
+      // 2. Sync trending players (both add and drop)
+      console.log('Syncing trending players from Sleeper API...');
+      const trendingTypes = ['add', 'drop'];
+      const lookbackHours = 24;
+      
+      for (const type of trendingTypes) {
+        try {
+          const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
+          if (trendingPlayers && trendingPlayers.length > 0) {
+            await upsertTrendingPlayers(env.DB, trendingPlayers, type, lookbackHours);
+            console.log(`Successfully synced ${trendingPlayers.length} trending ${type} players`);
+          }
+        } catch (error) {
+          console.error(`Error syncing trending ${type} players:`, error);
+        }
+      }
 
-      // 3. Refresh weather from NOAA for upcoming games
-      console.log('Refreshing weather from NOAA...');
-      // TODO: Implement NOAA weather sync
-
-      console.log('Scheduled ingestion job completed successfully');
+      console.log('Daily Sleeper API sync job completed successfully');
     } catch (error) {
       console.error('Scheduled job error:', error);
     }
