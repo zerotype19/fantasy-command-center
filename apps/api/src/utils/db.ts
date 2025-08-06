@@ -99,6 +99,67 @@ export class DatabaseService {
     return this.db.batch(batch);
   }
 
+  // Players - Sleeper Integration
+  async upsertSleeperPlayer(
+    sleeperId: string,
+    name: string,
+    position: string,
+    team: string,
+    status: string,
+    byeWeek: number
+  ) {
+    const stmt = this.db.prepare(`
+      INSERT INTO players (sleeper_id, name, position, team, status, bye_week)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(sleeper_id) 
+      DO UPDATE SET 
+        name = excluded.name,
+        position = excluded.position,
+        team = excluded.team,
+        status = excluded.status,
+        bye_week = excluded.bye_week,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    
+    return stmt.bind(sleeperId, name, position, team, status, byeWeek).run();
+  }
+
+  async upsertSleeperPlayers(players: any[]) {
+    const stmt = this.db.prepare(`
+      INSERT INTO players (sleeper_id, name, position, team, status, bye_week)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(sleeper_id) 
+      DO UPDATE SET 
+        name = excluded.name,
+        position = excluded.position,
+        team = excluded.team,
+        status = excluded.status,
+        bye_week = excluded.bye_week,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    
+    const batch = players.map(player => 
+      stmt.bind(
+        player.sleeper_id,
+        player.name,
+        player.position,
+        player.team,
+        player.status,
+        player.bye_week
+      )
+    );
+    
+    return this.db.batch(batch);
+  }
+
+  async getPlayerBySleeperId(sleeperId: string) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM players WHERE sleeper_id = ?
+    `);
+    
+    return stmt.bind(sleeperId).first();
+  }
+
   async getPlayerByEspnId(espnId: string) {
     const stmt = this.db.prepare(`
       SELECT * FROM players WHERE espn_id = ?
@@ -120,7 +181,7 @@ export class DatabaseService {
     const stmt = this.db.prepare(`
       SELECT 
         p.id,
-        p.espn_id,
+        p.sleeper_id,
         p.name,
         p.position,
         p.team,

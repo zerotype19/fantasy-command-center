@@ -72,6 +72,14 @@ export default {
           }
           break;
 
+        case '/sync/players':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleSyncSleeper(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/sync/espn':
           if (request.method === 'POST') {
             response = await playersHandler.handleSyncESPN(request);
@@ -147,9 +155,9 @@ export default {
       // Initialize services
       const db = new DatabaseService(env.DB);
 
-      // 1. Refresh player data from ESPN (placeholder for now)
-      console.log('Refreshing player data from ESPN...');
-      // TODO: Implement ESPN player sync for configured leagues
+      // 1. Refresh player data from Sleeper (placeholder for now)
+      console.log('Refreshing player data from Sleeper...');
+      // TODO: Implement Sleeper player sync
 
       // 2. Refresh injury/news from ESPN (placeholder for now)
       console.log('Refreshing injury/news from ESPN...');

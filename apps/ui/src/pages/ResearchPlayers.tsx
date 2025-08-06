@@ -3,7 +3,7 @@ import { useApi } from '../hooks/useApi';
 
 interface Player {
   id: number;
-  espn_id: string;
+  sleeper_id: string;
   name: string;
   position: string;
   team: string;
@@ -22,7 +22,6 @@ export function ResearchPlayers() {
   const [positionFilter, setPositionFilter] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [leagueId, setLeagueId] = useState('');
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const fetchPlayers = useCallback(async () => {
@@ -33,17 +32,12 @@ export function ResearchPlayers() {
     }
   }, [get]);
 
-  const syncESPNPlayers = useCallback(async () => {
-    if (!leagueId.trim()) {
-      alert('Please enter a League ID');
-      return;
-    }
-    
+  const syncSleeperPlayers = useCallback(async () => {
     setSyncError(null);
     try {
-      const result = await post(`/sync/players/${leagueId}`, {});
+      const result = await post('/sync/players', {});
       if (result) {
-        alert('ESPN players synced successfully!');
+        alert('Sleeper players synced successfully!');
         fetchPlayers();
       }
     } catch (err: any) {
@@ -51,7 +45,7 @@ export function ResearchPlayers() {
       setSyncError(errorMessage);
       console.error('Sync error:', err);
     }
-  }, [post, fetchPlayers, leagueId]);
+  }, [post, fetchPlayers]);
 
   useEffect(() => {
     fetchPlayers();
@@ -107,23 +101,16 @@ export function ResearchPlayers() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Research Players</h1>
             <p className="text-gray-600 mt-1">
-              Explore all players from ESPN leagues (no projections available yet)
+              Explore all players from Sleeper API (sleeper.com)
             </p>
           </div>
           <div className="flex items-center space-x-4">
-            <input
-              type="text"
-              value={leagueId}
-              onChange={(e) => setLeagueId(e.target.value)}
-              placeholder="Enter ESPN League ID"
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
             <button
-              onClick={syncESPNPlayers}
-              disabled={loading || !leagueId.trim()}
+              onClick={syncSleeperPlayers}
+              disabled={loading}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
             >
-              {loading ? 'Syncing...' : 'Sync ESPN Players'}
+              {loading ? 'Syncing...' : 'Sync Sleeper Players'}
             </button>
           </div>
         </div>
@@ -137,10 +124,9 @@ export function ResearchPlayers() {
           <div className="text-sm text-red-700">
             <p className="font-medium mb-1">To fix this issue:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Make sure you're signed into ESPN in your browser</li>
-              <li>Verify the league ID is correct</li>
-              <li>Ensure you have access to the league (it may be private)</li>
-              <li>Try using a different league ID if available</li>
+              <li>Check your internet connection</li>
+              <li>The Sleeper API may be temporarily unavailable</li>
+              <li>Try again in a few minutes</li>
             </ul>
           </div>
         </div>
@@ -148,7 +134,7 @@ export function ResearchPlayers() {
 
       {/* Filters */}
       <div className="bg-white shadow rounded-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Search Players
@@ -194,20 +180,20 @@ export function ResearchPlayers() {
               <option value="status">Status</option>
             </select>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sort Order
-            </label>
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
-          </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Sort Order
+          </label>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
         </div>
       </div>
 
@@ -276,7 +262,7 @@ export function ResearchPlayers() {
                       {player.team}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {player.status || 'Healthy'}
+                      {player.status || 'Active'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.bye_week || '-'}

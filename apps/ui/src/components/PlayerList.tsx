@@ -3,7 +3,7 @@ import { useApi } from '../hooks/useApi';
 
 interface Player {
   id: number;
-  espn_id: string;
+  sleeper_id: string;
   name: string;
   position: string;
   team: string;
@@ -131,7 +131,7 @@ export function PlayerList() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(player.status)}`}>
-                    {player.status || 'Healthy'}
+                    {player.status || 'Active'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -148,7 +148,7 @@ export function PlayerList() {
       
       {players.length === 0 && !loading && (
         <div className="px-6 py-8 text-center">
-          <p className="text-gray-500">No players found. Sync players from ESPN to get started.</p>
+          <p className="text-gray-500">No players found. Sync players from Sleeper to get started.</p>
         </div>
       )}
     </div>

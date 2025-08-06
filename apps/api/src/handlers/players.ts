@@ -1,5 +1,5 @@
 import { DatabaseService } from '../utils/db';
-import { fetchLeagueData, extractPlayersFromRoster } from '../services/espn';
+import { fetchAllPlayers, filterPlayersForDevelopment, validatePlayer } from '../services/sleeper';
 
 export class PlayersHandler {
   private db: DatabaseService;
@@ -15,8 +15,8 @@ export class PlayersHandler {
       const limit = parseInt(url.searchParams.get('limit') || '25');
       const search = url.searchParams.get('search');
 
-      // Get players from ESPN data (no projections for now)
-      let players: any[] = await this.db.getPlayersWithProjections();
+      // Get players from database
+      let players: any[] = await this.db.getAllPlayers();
 
       // Add projection_source field to indicate no projections available
       players = players.map(player => ({
@@ -58,6 +58,72 @@ export class PlayersHandler {
     }
   }
 
+  async handleSyncSleeper(request: Request): Promise<Response> {
+    try {
+      console.log('Starting Sleeper players sync...');
+
+      // Fetch all players from Sleeper API
+      const sleeperPlayers = await fetchAllPlayers();
+      
+      // Filter for development (active players, limited positions, ~200 players)
+      const filteredPlayers = filterPlayersForDevelopment(sleeperPlayers);
+      
+      // Transform Sleeper data to our database format
+      const playersToInsert: any[] = [];
+      let skippedCount = 0;
+      
+      for (const player of filteredPlayers) {
+        // Validate required fields
+        const validation = validatePlayer(player);
+        if (!validation.isValid) {
+          console.warn(`Skipping player ${player.player_id}: missing fields: ${validation.missingFields.join(', ')}`);
+          skippedCount++;
+          continue;
+        }
+
+        // Transform Sleeper data to our format
+        const transformedPlayer = {
+          sleeper_id: player.player_id,
+          name: player.full_name,
+          position: player.position,
+          team: player.team,
+          status: player.status,
+          bye_week: player.bye
+        };
+
+        playersToInsert.push(transformedPlayer);
+      }
+
+      // Store players in database
+      if (playersToInsert.length > 0) {
+        await this.db.upsertSleeperPlayers(playersToInsert);
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Synced ${playersToInsert.length} players from Sleeper (${skippedCount} skipped due to missing data)`,
+          count: playersToInsert.length,
+          skipped: skippedCount
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    } catch (error) {
+      console.error('Sync Sleeper error:', error);
+      
+      let errorMessage = 'Failed to sync players from Sleeper';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
   async handleSyncESPN(request: Request): Promise<Response> {
     try {
       const body = await request.json() as any;
@@ -72,22 +138,13 @@ export class PlayersHandler {
 
       console.log(`Starting ESPN sync for league ${leagueId}...`);
 
-      // Fetch league data from ESPN
-      const leagueData = await fetchLeagueData(leagueId);
-      
-      // Extract players from roster data
-      const players = extractPlayersFromRoster(leagueData);
-      
-      // Store players in database
-      await this.db.upsertESPNPlayers(players);
-
+      // This endpoint is deprecated - redirect to Sleeper sync
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          message: `Synced ${players.length} players from ESPN league ${leagueId}`,
-          count: players.length
+          error: 'ESPN sync is deprecated. Please use /sync/players to sync from Sleeper API.',
+          message: 'Use POST /sync/players to sync player data from Sleeper'
         }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
 
     } catch (error) {
@@ -114,22 +171,13 @@ export class PlayersHandler {
 
       console.log(`Starting ESPN players sync for league ${leagueId}...`);
 
-      // Fetch league data from ESPN
-      const leagueData = await fetchLeagueData(leagueId);
-      
-      // Extract players from roster data
-      const players = extractPlayersFromRoster(leagueData);
-      
-      // Store players in database
-      await this.db.upsertESPNPlayers(players);
-
+      // This endpoint is deprecated - redirect to Sleeper sync
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          message: `Synced ${players.length} players from ESPN league ${leagueId}`,
-          count: players.length
+          error: 'ESPN sync is deprecated. Please use /sync/players to sync from Sleeper API.',
+          message: 'Use POST /sync/players to sync player data from Sleeper'
         }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
 
     } catch (error) {
