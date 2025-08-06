@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "build": "wrangler build",
+    "build": "tsc",
     "deploy": "wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply fantasy_command_db",
     "db:create": "wrangler d1 migrations create fantasy_command_db"
