@@ -13,6 +13,17 @@ interface Alert {
   updated_at: string;
 }
 
+interface Projection {
+  id: number;
+  player_id: number;
+  week: number;
+  season: number;
+  projected_points: number;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface Stats {
   playerCount: number;
   projectionCount: number;
