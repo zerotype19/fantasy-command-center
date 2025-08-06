@@ -233,3 +233,106 @@ export class PlayersHandler {
     }
   }
 } 
+
+export async function handleSyncTrendingPlayers(request: Request, db: any): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const type = url.searchParams.get('type') || 'add';
+    const lookbackHours = parseInt(url.searchParams.get('lookback_hours') || '24');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+
+    console.log(`Starting trending players sync for type: ${type}, lookback: ${lookbackHours}h, limit: ${limit}`);
+
+    // Fetch trending players from Sleeper
+    const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours, limit);
+    
+    if (!trendingPlayers || trendingPlayers.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'No trending players found'
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Store trending players in database
+    await upsertTrendingPlayers(db, trendingPlayers, type, lookbackHours);
+
+    console.log(`Successfully synced ${trendingPlayers.length} trending players`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `Synced ${trendingPlayers.length} trending players`,
+      data: {
+        type,
+        lookback_hours: lookbackHours,
+        count: trendingPlayers.length,
+        players: trendingPlayers
+      }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Error syncing trending players:', error);
+    
+    let errorMessage = 'Failed to sync trending players';
+    if (error instanceof Error) {
+      if (error.message.includes('429')) {
+        errorMessage = 'Sleeper API rate limited — please try again shortly.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: false,
+      message: errorMessage
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+export async function handleGetTrendingPlayers(request: Request, db: any): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const type = url.searchParams.get('type') || 'add';
+    const lookbackHours = url.searchParams.get('lookback_hours');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+
+    let trendingPlayers;
+    if (lookbackHours) {
+      trendingPlayers = await getTrendingPlayersByLookback(db, type, parseInt(lookbackHours), limit);
+    } else {
+      trendingPlayers = await getTrendingPlayers(db, type, limit);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        type,
+        lookback_hours: lookbackHours,
+        count: trendingPlayers.length,
+        players: trendingPlayers
+      }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Error fetching trending players:', error);
+    
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Failed to fetch trending players'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+} 

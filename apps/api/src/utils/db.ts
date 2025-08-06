@@ -455,3 +455,75 @@ export class DatabaseService {
     return stmt.bind(userId, leagueId).all();
   }
 } 
+
+export async function upsertTrendingPlayer(db: any, trendingPlayer: any, type: string, lookbackHours: number): Promise<void> {
+  const stmt = db.prepare(`
+    INSERT INTO trending_players (player_id, sleeper_id, type, count, lookback_hours)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(player_id, type, lookback_hours) 
+    DO UPDATE SET 
+      count = excluded.count,
+      updated_at = CURRENT_TIMESTAMP
+  `);
+  
+  await stmt.bind(
+    trendingPlayer.player_id,
+    trendingPlayer.player_id, // Use player_id as sleeper_id for now
+    type,
+    trendingPlayer.count,
+    lookbackHours
+  ).run();
+}
+
+export async function upsertTrendingPlayers(db: any, trendingPlayers: any[], type: string, lookbackHours: number): Promise<void> {
+  const batch = db.batch();
+  
+  for (const player of trendingPlayers) {
+    const stmt = db.prepare(`
+      INSERT INTO trending_players (player_id, sleeper_id, type, count, lookback_hours)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(player_id, type, lookback_hours) 
+      DO UPDATE SET 
+        count = excluded.count,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    
+    batch.add(stmt.bind(
+      player.player_id,
+      player.player_id, // Use player_id as sleeper_id for now
+      type,
+      player.count,
+      lookbackHours
+    ));
+  }
+  
+  await batch.run();
+}
+
+export async function getTrendingPlayers(db: any, type: string, limit: number = 10): Promise<any[]> {
+  const stmt = db.prepare(`
+    SELECT tp.*, p.name, p.position, p.team, p.status
+    FROM trending_players tp
+    LEFT JOIN players p ON tp.sleeper_id = p.sleeper_id
+    WHERE tp.type = ?
+    ORDER BY tp.count DESC
+    LIMIT ?
+  `);
+  
+  const result = await stmt.bind(type, limit).all();
+  return result.results as any[];
+}
+
+export async function getTrendingPlayersByLookback(db: any, type: string, lookbackHours: number, limit: number = 10): Promise<any[]> {
+  const stmt = db.prepare(`
+    SELECT tp.*, p.name, p.position, p.team, p.status
+    FROM trending_players tp
+    LEFT JOIN players p ON tp.sleeper_id = p.sleeper_id
+    WHERE tp.type = ? AND tp.lookback_hours = ?
+    ORDER BY tp.count DESC
+    LIMIT ?
+  `);
+  
+  const result = await stmt.bind(type, lookbackHours, limit).all();
+  return result.results as any[];
+} 
