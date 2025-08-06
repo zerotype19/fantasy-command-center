@@ -66,7 +66,7 @@ export function filterPlayersForDevelopment(players: SleeperPlayersResponse): Sl
 
 // Validate required fields for a player
 export function validatePlayer(player: SleeperPlayer): { isValid: boolean; missingFields: string[] } {
-  const requiredFields = ['full_name', 'position', 'team', 'player_id'];
+  const requiredFields = ['full_name', 'position', 'player_id'];
   const missingFields: string[] = [];
   
   for (const field of requiredFields) {
@@ -78,5 +78,17 @@ export function validatePlayer(player: SleeperPlayer): { isValid: boolean; missi
   return {
     isValid: missingFields.length === 0,
     missingFields
+  };
+}
+
+// Transform Sleeper player data to our database format
+export function transformSleeperPlayer(player: SleeperPlayer): any {
+  return {
+    sleeper_id: player.player_id,
+    name: player.full_name,
+    position: player.position,
+    team: player.team || 'FA', // Use 'FA' (Free Agent) if no team
+    status: player.status || 'Active',
+    bye_week: player.bye || null
   };
 } 

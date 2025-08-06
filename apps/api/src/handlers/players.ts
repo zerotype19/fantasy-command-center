@@ -1,5 +1,5 @@
 import { DatabaseService } from '../utils/db';
-import { fetchAllPlayers, filterPlayersForDevelopment, validatePlayer } from '../services/sleeper';
+import { fetchAllPlayers, filterPlayersForDevelopment, validatePlayer, transformSleeperPlayer } from '../services/sleeper';
 
 export class PlayersHandler {
   private db: DatabaseService;
@@ -81,16 +81,8 @@ export class PlayersHandler {
           continue;
         }
 
-        // Transform Sleeper data to our format
-        const transformedPlayer = {
-          sleeper_id: player.player_id,
-          name: player.full_name,
-          position: player.position,
-          team: player.team,
-          status: player.status,
-          bye_week: player.bye
-        };
-
+        // Transform Sleeper data to our format using the new function
+        const transformedPlayer = transformSleeperPlayer(player);
         playersToInsert.push(transformedPlayer);
       }
 
