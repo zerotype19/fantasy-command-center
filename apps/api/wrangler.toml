@@ -14,6 +14,5 @@ database_id = "620d2c79-c751-4bdd-8ec4-afe56fc9b3a1"
 crons = ["0 * * * *"] # hourly ingestion job
 
 [vars]
-FANTASY_PROS_MCP_URL = "https://smithery.ai/server/@DynamicEndpoints/fantasy-pros-mcp"
 NOAA_BASE_URL = "https://api.weather.gov"
 ESPN_BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl" 

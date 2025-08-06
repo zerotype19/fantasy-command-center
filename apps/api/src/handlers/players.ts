@@ -1,16 +1,11 @@
 import { DatabaseService } from '../utils/db';
-import { ESPNService } from '../services/espn';
-import { FantasyProsService } from '../services/fantasypros';
+import { fetchLeagueData, extractPlayersFromRoster } from '../services/espn';
 
 export class PlayersHandler {
   private db: DatabaseService;
-  private espnService: ESPNService;
-  private fantasyProsService: FantasyProsService;
 
-  constructor(db: DatabaseService, espnService: ESPNService, fantasyProsService: FantasyProsService) {
+  constructor(db: DatabaseService) {
     this.db = db;
-    this.espnService = espnService;
-    this.fantasyProsService = fantasyProsService;
   }
 
   async handleGet(request: Request): Promise<Response> {
@@ -20,8 +15,16 @@ export class PlayersHandler {
       const limit = parseInt(url.searchParams.get('limit') || '25');
       const search = url.searchParams.get('search');
 
-      // Get players with projections from FantasyPros
+      // Get players from ESPN data (no projections for now)
       let players: any[] = await this.db.getPlayersWithProjections();
+
+      // Add projection_source field to indicate no projections available
+      players = players.map(player => ({
+        ...player,
+        projected_points_week: null,
+        projected_points_season: null,
+        projection_source: 'none'
+      }));
 
       // Apply filters
       if (position) {
@@ -67,24 +70,21 @@ export class PlayersHandler {
         );
       }
 
-      const players = await this.espnService.getAllPlayersFromLeague(leagueId);
+      console.log(`Starting ESPN sync for league ${leagueId}...`);
+
+      // Fetch league data from ESPN
+      const leagueData = await fetchLeagueData(leagueId);
+      
+      // Extract players from roster data
+      const players = extractPlayersFromRoster(leagueData);
       
       // Store players in database
-      for (const player of players) {
-        await this.db.upsertPlayer(
-          player.espnId,
-          player.name,
-          player.position,
-          player.team,
-          player.status,
-          player.byeWeek
-        );
-      }
+      await this.db.upsertESPNPlayers(players);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Synced ${players.length} players from ESPN`,
+          message: `Synced ${players.length} players from ESPN league ${leagueId}`,
           count: players.length
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -99,49 +99,43 @@ export class PlayersHandler {
     }
   }
 
-  async handleSyncFantasyPros(request: Request): Promise<Response> {
+  async handleSyncPlayers(request: Request): Promise<Response> {
     try {
-      console.log('Starting FantasyPros sync...');
+      const url = new URL(request.url);
+      const pathParts = url.pathname.split('/');
+      const leagueId = pathParts[pathParts.length - 1]; // Get leagueId from URL path
+
+      if (!leagueId) {
+        return new Response(
+          JSON.stringify({ error: 'leagueId is required in URL path' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Starting ESPN players sync for league ${leagueId}...`);
+
+      // Fetch league data from ESPN
+      const leagueData = await fetchLeagueData(leagueId);
       
-      const players = await this.fantasyProsService.getProjections();
+      // Extract players from roster data
+      const players = extractPlayersFromRoster(leagueData);
       
       // Store players in database
-      let storedCount = 0;
-      for (const player of players) {
-        try {
-          await this.db.upsertFantasyProsPlayer(
-            player.name,
-            player.position,
-            player.team,
-            player.bye_week,
-            player.projected_points_week,
-            player.projected_points_season,
-            player.source,
-            player.adp,
-            player.risk_rating,
-            player.tier,
-            player.rank
-          );
-          storedCount++;
-        } catch (error) {
-          console.error(`Failed to store player ${player.name}:`, error);
-        }
-      }
+      await this.db.upsertESPNPlayers(players);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Synced ${storedCount} players from FantasyPros`,
-          count: storedCount,
-          total: players.length
+          message: `Synced ${players.length} players from ESPN league ${leagueId}`,
+          count: players.length
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
 
     } catch (error) {
-      console.error('Sync FantasyPros error:', error);
+      console.error('Sync players error:', error);
       return new Response(
-        JSON.stringify({ error: 'Failed to sync FantasyPros players' }),
+        JSON.stringify({ error: 'Failed to sync players from ESPN' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }

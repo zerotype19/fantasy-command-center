@@ -1,14 +1,5 @@
 import { DatabaseService } from '../utils/db';
-
-export interface LeagueSettings {
-  userId: string;
-  leagueId: string;
-  scoringJson: string;
-  rosterJson: string;
-  keeperRulesJson: string;
-  auctionBudget: number;
-  waiverBudget: number;
-}
+import { fetchLeagueData, extractLeagueSettings } from '../services/espn';
 
 export class LeagueHandler {
   private db: DatabaseService;
@@ -19,60 +10,35 @@ export class LeagueHandler {
 
   async handlePost(request: Request): Promise<Response> {
     try {
-      const body = await request.json() as LeagueSettings;
-      
-      // Validate required fields
-      if (!body.userId || !body.leagueId) {
+      const body = await request.json() as any;
+      const { userId, leagueId, scoringJson, rosterJson, keeperRulesJson, auctionBudget, waiverBudget } = body;
+
+      if (!userId || !leagueId) {
         return new Response(
           JSON.stringify({ error: 'userId and leagueId are required' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      // Validate JSON fields
-      try {
-        JSON.parse(body.scoringJson);
-        JSON.parse(body.rosterJson);
-        JSON.parse(body.keeperRulesJson);
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid JSON in scoring, roster, or keeper rules' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Validate numeric fields
-      if (typeof body.auctionBudget !== 'number' || typeof body.waiverBudget !== 'number') {
-        return new Response(
-          JSON.stringify({ error: 'auctionBudget and waiverBudget must be numbers' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Upsert league settings
-      const result = await this.db.upsertLeagueSettings(
-        body.userId,
-        body.leagueId,
-        body.scoringJson,
-        body.rosterJson,
-        body.keeperRulesJson,
-        body.auctionBudget,
-        body.waiverBudget
+      await this.db.upsertLeagueSettings(
+        userId,
+        leagueId,
+        scoringJson || '{}',
+        rosterJson || '{}',
+        keeperRulesJson || '{}',
+        auctionBudget || 0,
+        waiverBudget || 0
       );
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'League settings saved successfully',
-          id: result.meta?.last_row_id
-        }),
+        JSON.stringify({ success: true, message: 'League settings saved' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
 
     } catch (error) {
       console.error('League POST error:', error);
       return new Response(
-        JSON.stringify({ error: 'Internal server error' }),
+        JSON.stringify({ error: 'Failed to save league settings' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -86,7 +52,7 @@ export class LeagueHandler {
 
       if (!userId || !leagueId) {
         return new Response(
-          JSON.stringify({ error: 'userId and leagueId query parameters are required' }),
+          JSON.stringify({ error: 'userId and leagueId are required' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         );
       }
@@ -108,7 +74,49 @@ export class LeagueHandler {
     } catch (error) {
       console.error('League GET error:', error);
       return new Response(
-        JSON.stringify({ error: 'Internal server error' }),
+        JSON.stringify({ error: 'Failed to get league settings' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  async handleGetLeagueSettings(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const pathParts = url.pathname.split('/');
+      
+      // Extract leagueId from path: /league/:leagueId/settings
+      const leagueIdIndex = pathParts.indexOf('league') + 1;
+      const leagueId = pathParts[leagueIdIndex];
+
+      if (!leagueId) {
+        return new Response(
+          JSON.stringify({ error: 'leagueId is required in URL path' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Fetching league settings for league ${leagueId}...`);
+
+      // Fetch league data from ESPN
+      const leagueData = await fetchLeagueData(leagueId);
+      
+      // Extract league settings
+      const settings = extractLeagueSettings(leagueData);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          league_id: leagueId,
+          settings: settings
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    } catch (error) {
+      console.error('League settings GET error:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch league settings' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }

@@ -1,26 +1,23 @@
 import { DatabaseService } from '../utils/db';
-import { ESPNService } from '../services/espn';
+import { fetchTeamRoster } from '../services/espn';
 
 export interface TeamPlayer {
-  player_id: number;
+  espn_id: string;
   name: string;
   position: string;
   team: string;
-  bye_week: number;
-  projected_points_week: number;
-  projected_points_season: number;
-  espn_id?: string;
-  espn_status?: string;
-  espn_ownership?: string;
+  status: string;
+  bye_week: number | null;
+  projected_points_week: number | null;
+  projected_points_season: number | null;
+  projection_source: string;
 }
 
 export class TeamHandler {
   private db: DatabaseService;
-  private espnService: ESPNService;
 
-  constructor(db: DatabaseService, espnService: ESPNService) {
+  constructor(db: DatabaseService) {
     this.db = db;
-    this.espnService = espnService;
   }
 
   async handleGet(request: Request): Promise<Response> {
@@ -29,78 +26,70 @@ export class TeamHandler {
       const pathParts = url.pathname.split('/');
       
       // Extract leagueId and teamId from path: /team/:leagueId/:teamId
-      if (pathParts.length !== 4) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid path. Expected /team/:leagueId/:teamId' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const leagueId = pathParts[2];
-      const teamId = pathParts[3];
+      const leagueIdIndex = pathParts.indexOf('team') + 1;
+      const leagueId = pathParts[leagueIdIndex];
+      const teamId = pathParts[leagueIdIndex + 1];
 
       if (!leagueId || !teamId) {
         return new Response(
-          JSON.stringify({ error: 'leagueId and teamId are required' }),
+          JSON.stringify({ error: 'leagueId and teamId are required in URL path' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`Fetching team roster for league ${leagueId}, team ${teamId}`);
+      console.log(`Fetching team roster for league ${leagueId}, team ${teamId}...`);
 
       // Fetch team roster from ESPN
-      const espnTeamData = await this.espnService.getTeamRoster(leagueId, teamId);
+      const rosterData = await fetchTeamRoster(leagueId, parseInt(teamId));
       
-      if (!espnTeamData || !espnTeamData.players || espnTeamData.players.length === 0) {
+      if (!rosterData || !rosterData.teams || !rosterData.teams[0]) {
         return new Response(
-          JSON.stringify({ error: 'No team roster found' }),
+          JSON.stringify({ error: 'No team data found' }),
           { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      // Match ESPN players with our database players and merge data
+      const team = rosterData.teams[0];
       const teamPlayers: TeamPlayer[] = [];
-      
-      for (const espnPlayer of espnTeamData.players) {
-        // Try to find matching player in our database
-        const dbPlayer = await this.db.getPlayerByEspnId(espnPlayer.espnId);
-        
-        if (dbPlayer) {
-          // Get projection data for this player
-          const projection = await this.db.getProjectionByPlayerId((dbPlayer as any).id, 1, 2024);
+
+      // Process each player in the roster
+      if (team.roster && team.roster.entries) {
+        for (const entry of team.roster.entries) {
+          if (!entry.playerPoolEntry || !entry.playerPoolEntry.player) {
+            continue;
+          }
+
+          const player = entry.playerPoolEntry.player;
+          const espnId = player.id.toString();
+
+          // Get player from database to get additional info
+          const dbPlayer = await this.db.getPlayerByEspnId(espnId);
           
+          // Get projection if available
+          const projection = dbPlayer ? await this.db.getProjectionByPlayerId(dbPlayer.id) : null;
+
           teamPlayers.push({
-            player_id: (dbPlayer as any).id,
-            name: (dbPlayer as any).name,
-            position: (dbPlayer as any).position,
-            team: (dbPlayer as any).team,
-            bye_week: (dbPlayer as any).bye_week || 0,
-            projected_points_week: (projection as any)?.projected_points || 0,
-            projected_points_season: (projection as any)?.projected_points || 0, // Using weekly for now
-            espn_id: espnPlayer.espnId,
-            espn_status: espnPlayer.status,
-            espn_ownership: espnPlayer.ownership,
-          });
-        } else {
-          // Player not in our database, create basic entry
-          teamPlayers.push({
-            player_id: 0,
-            name: espnPlayer.name,
-            position: espnPlayer.position,
-            team: espnPlayer.team,
-            bye_week: espnPlayer.byeWeek || 0,
-            projected_points_week: 0,
-            projected_points_season: 0,
-            espn_id: espnPlayer.espnId,
-            espn_status: espnPlayer.status,
-            espn_ownership: espnPlayer.ownership,
+            espn_id: espnId,
+            name: player.fullName || `${player.firstName} ${player.lastName}`,
+            position: dbPlayer?.position || 'UNK',
+            team: dbPlayer?.team || 'FA',
+            status: player.injuryStatus || 'healthy',
+            bye_week: dbPlayer?.bye_week || null,
+            projected_points_week: projection?.projected_points || null,
+            projected_points_season: null, // ESPN doesn't provide season projections
+            projection_source: projection?.source || 'none'
           });
         }
       }
 
       return new Response(
         JSON.stringify({
-          team: espnTeamData.team,
+          success: true,
+          team: {
+            id: team.id,
+            name: team.name,
+            abbreviation: team.abbreviation
+          },
           players: teamPlayers,
           count: teamPlayers.length
         }),

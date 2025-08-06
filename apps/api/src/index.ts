@@ -1,10 +1,7 @@
 import { DatabaseService } from './utils/db';
-import { ESPNService } from './services/espn';
-import { FantasyProsService } from './services/fantasypros';
 import { NOAAService } from './services/noaa';
 import { LeagueHandler } from './handlers/league';
 import { PlayersHandler } from './handlers/players';
-import { ProjectionsHandler } from './handlers/projections';
 import { AlertsHandler } from './handlers/alerts';
 import { TeamHandler } from './handlers/team';
 
@@ -22,7 +19,6 @@ interface ScheduledEvent {
 
 export interface Env {
   DB: any; // D1Database type
-  FANTASY_PROS_MCP_URL: string;
   NOAA_BASE_URL: string;
   ESPN_BASE_URL: string;
 }
@@ -34,16 +30,13 @@ export default {
 
     // Initialize services
     const db = new DatabaseService(env.DB);
-    const espnService = new ESPNService(env.ESPN_BASE_URL);
-    const fantasyProsService = new FantasyProsService(env.FANTASY_PROS_MCP_URL);
     const noaaService = new NOAAService(env.NOAA_BASE_URL);
 
     // Initialize handlers
     const leagueHandler = new LeagueHandler(db);
-    const playersHandler = new PlayersHandler(db, espnService, fantasyProsService);
-    const projectionsHandler = new ProjectionsHandler(db, fantasyProsService);
+    const playersHandler = new PlayersHandler(db);
     const alertsHandler = new AlertsHandler(db);
-    const teamHandler = new TeamHandler(db, espnService);
+    const teamHandler = new TeamHandler(db);
 
     // CORS headers
     const corsHeaders = {
@@ -87,30 +80,6 @@ export default {
           }
           break;
 
-        case '/sync/fantasypros':
-          if (request.method === 'POST') {
-            response = await playersHandler.handleSyncFantasyPros(request);
-          } else {
-            response = new Response('Method not allowed', { status: 405 });
-          }
-          break;
-
-        case '/projections':
-          if (request.method === 'GET') {
-            response = await projectionsHandler.handleGet(request);
-          } else {
-            response = new Response('Method not allowed', { status: 405 });
-          }
-          break;
-
-        case '/sync/projections':
-          if (request.method === 'POST') {
-            response = await projectionsHandler.handleSyncProjections(request);
-          } else {
-            response = new Response('Method not allowed', { status: 405 });
-          }
-          break;
-
         case '/alerts':
           if (request.method === 'GET') {
             response = await alertsHandler.handleGet(request);
@@ -131,9 +100,13 @@ export default {
           break;
 
         default:
-          // Handle team endpoint with path parameters
+          // Handle path-based endpoints
           if (path.startsWith('/team/') && request.method === 'GET') {
             response = await teamHandler.handleGet(request);
+          } else if (path.startsWith('/sync/players/') && request.method === 'POST') {
+            response = await playersHandler.handleSyncPlayers(request);
+          } else if (path.startsWith('/league/') && path.endsWith('/settings') && request.method === 'GET') {
+            response = await leagueHandler.handleGetLeagueSettings(request);
           } else {
             response = new Response('Not found', { status: 404 });
           }
@@ -173,12 +146,10 @@ export default {
     try {
       // Initialize services
       const db = new DatabaseService(env.DB);
-      const fantasyProsService = new FantasyProsService(env.FANTASY_PROS_MCP_URL);
-      const projectionsHandler = new ProjectionsHandler(db, fantasyProsService);
 
-      // 1. Refresh player projections from FantasyPros
-      console.log('Refreshing projections from FantasyPros...');
-      await projectionsHandler.handleSyncProjections(new Request('http://localhost/sync/projections', { method: 'POST' }));
+      // 1. Refresh player data from ESPN (placeholder for now)
+      console.log('Refreshing player data from ESPN...');
+      // TODO: Implement ESPN player sync for configured leagues
 
       // 2. Refresh injury/news from ESPN (placeholder for now)
       console.log('Refreshing injury/news from ESPN...');
