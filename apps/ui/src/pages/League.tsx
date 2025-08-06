@@ -18,17 +18,31 @@ interface LeagueSettings {
 export function League() {
   const { get, loading, error } = useApi();
   const [leagueData, setLeagueData] = useState<LeagueSettings | null>(null);
+  const [savedLeagueId, setSavedLeagueId] = useState<string>('default');
 
   const fetchLeagueData = useCallback(async () => {
-    // Use the same userId as the form ('default-user') to match the saved data
-    const data = await get<LeagueSettings>('/league?userId=default-user&leagueId=default');
+    // Use the saved leagueId or fallback to 'default'
+    const data = await get<LeagueSettings>(`/league?userId=default-user&leagueId=${savedLeagueId}`);
     if (data) {
       setLeagueData(data);
+      // Update the saved leagueId if we get data back
+      setSavedLeagueId(data.league_id);
     }
-  }, [get]);
+  }, [get, savedLeagueId]);
 
   useEffect(() => {
     fetchLeagueData();
+  }, [fetchLeagueData]);
+
+  const handleSave = useCallback((formData: any) => {
+    // Update the saved leagueId when form is saved
+    if (formData.leagueId) {
+      setSavedLeagueId(formData.leagueId);
+      // Trigger a refresh after updating the leagueId
+      setTimeout(() => {
+        fetchLeagueData();
+      }, 100);
+    }
   }, [fetchLeagueData]);
 
   return (
@@ -40,7 +54,7 @@ export function League() {
         </p>
       </div>
 
-      <LeagueForm onSave={fetchLeagueData} />
+      <LeagueForm onSave={handleSave} />
 
       {/* Debug Output */}
       <div className="bg-white shadow rounded-lg p-6">

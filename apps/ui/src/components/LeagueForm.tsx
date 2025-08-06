@@ -12,7 +12,7 @@ interface LeagueSettings {
 }
 
 interface LeagueFormProps {
-  onSave?: () => void;
+  onSave?: (formData: LeagueSettings) => void;
 }
 
 export function LeagueForm({ onSave }: LeagueFormProps) {
@@ -39,8 +39,8 @@ export function LeagueForm({ onSave }: LeagueFormProps) {
     const result = await post('/league', formData);
     if (result) {
       alert('League settings saved successfully!');
-      // Notify parent component to refresh data
-      onSave?.();
+      // Notify parent component to refresh data with the saved form data
+      onSave?.(formData);
     }
   };
 
