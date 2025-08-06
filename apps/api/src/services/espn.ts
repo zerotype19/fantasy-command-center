@@ -1,25 +1,40 @@
 import { fetchJson, espnRateLimiter } from '../utils/fetchHelpers';
 
-export interface ESPNLeagueData {
-  id: string;
-  name: string;
-  teams: ESPNTeam[];
-  settings: any;
-}
-
-export interface ESPNTeam {
-  id: string;
-  name: string;
-  players: ESPNPlayer[];
-}
-
 export interface ESPNPlayer {
-  id: string;
+  espnId: string;
   name: string;
   position: string;
   team: string;
   status?: string;
   byeWeek?: number;
+  ownership?: string;
+}
+
+export interface ESPNTeam {
+  id: number;
+  name: string;
+  abbreviation: string;
+  roster?: {
+    entries: Array<{
+      playerPoolEntry: {
+        player: {
+          id: number;
+          fullName: string;
+          firstName?: string;
+          lastName?: string;
+          defaultPositionId: number;
+          proTeamId: number;
+          injuryStatus?: string;
+          byeWeek?: number;
+        };
+        ownership?: string;
+      };
+    }>;
+  };
+}
+
+export interface ESPNLeagueData {
+  teams: ESPNTeam[];
 }
 
 export class ESPNService {
@@ -29,93 +44,115 @@ export class ESPNService {
     this.baseUrl = baseUrl;
   }
 
-  async getLeagueData(
-    leagueId: string,
-    season: number,
-    teamId?: number
-  ): Promise<ESPNLeagueData> {
-    if (!espnRateLimiter()) {
-      throw new Error('ESPN API rate limit exceeded. Please try again later.');
-    }
-
-    const url = `${this.baseUrl}/seasons/${season}/segments/0/leagues/${leagueId}?view=mRoster`;
+  async getLeagueData(leagueId: string, season: number = 2024): Promise<ESPNLeagueData> {
+    const url = `${this.baseUrl}/seasons/${season}/segments/0/leagues/${leagueId}?view=mTeam`;
     
     try {
-      const data = await fetchJson<any>(url);
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`ESPN API request failed: ${response.status} ${response.statusText}`);
+      }
       
-      if (!data || !data.teams) {
-        throw new Error('Invalid league data received from ESPN');
-      }
-
-      return {
-        id: data.id || leagueId,
-        name: data.settings?.name || 'Unknown League',
-        teams: data.teams.map((team: any) => ({
-          id: team.id,
-          name: team.name || `Team ${team.id}`,
-          players: this.extractPlayersFromTeam(team)
-        })),
-        settings: data.settings
-      };
+      const data = await response.json();
+      return data as ESPNLeagueData;
     } catch (error) {
-      console.error('ESPN API error:', error);
-      throw new Error(`Failed to fetch league data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error fetching ESPN league data:', error);
+      throw error;
     }
   }
 
-  private extractPlayersFromTeam(team: any): ESPNPlayer[] {
-    const players: ESPNPlayer[] = [];
-    
-    if (!team.roster || !Array.isArray(team.roster.entries)) {
-      return players;
-    }
-
-    for (const entry of team.roster.entries) {
-      if (entry.playerPoolEntry && entry.playerPoolEntry.player) {
-        const player = entry.playerPoolEntry.player;
-        
-        players.push({
-          id: player.id.toString(),
-          name: player.fullName || `${player.firstName} ${player.lastName}`,
-          position: player.defaultPositionId || 'UNKNOWN',
-          team: player.proTeamId ? this.getTeamName(player.proTeamId) : 'FA',
-          status: player.injuryStatus || undefined,
-          byeWeek: player.byeWeek || undefined
-        });
-      }
-    }
-
-    return players;
-  }
-
-  private getTeamName(teamId: number): string {
+  getTeamName(proTeamId: number): string {
     const teamMap: { [key: number]: string } = {
-      1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE',
-      6: 'DAL', 7: 'DEN', 8: 'DET', 9: 'GB', 10: 'TEN',
-      11: 'IND', 12: 'KC', 13: 'LV', 14: 'LAR', 15: 'MIA',
-      16: 'MIN', 17: 'NE', 18: 'NO', 19: 'NYG', 20: 'NYJ',
-      21: 'PHI', 22: 'ARI', 23: 'PIT', 24: 'LAC', 25: 'SF',
-      26: 'SEA', 27: 'TB', 28: 'WAS', 29: 'CAR', 30: 'JAX',
-      33: 'BAL', 34: 'HOU'
+      1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE', 6: 'DAL', 7: 'DEN', 8: 'DET',
+      9: 'GB', 10: 'TEN', 11: 'IND', 12: 'KC', 13: 'LV', 14: 'LAR', 15: 'MIA', 16: 'MIN',
+      17: 'NE', 18: 'NO', 19: 'NYG', 20: 'NYJ', 21: 'PHI', 22: 'ARI', 23: 'PIT', 24: 'LAC',
+      25: 'SF', 26: 'SEA', 27: 'TB', 28: 'WSH', 29: 'CAR', 30: 'JAX', 33: 'BAL', 34: 'HOU'
     };
     
-    return teamMap[teamId] || 'UNKNOWN';
+    return teamMap[proTeamId] || 'FA';
   }
 
-  async getAllPlayersFromLeague(leagueId: string, season: number): Promise<ESPNPlayer[]> {
-    const leagueData = await this.getLeagueData(leagueId, season);
-    const allPlayers: ESPNPlayer[] = [];
-    
-    for (const team of leagueData.teams) {
-      allPlayers.push(...team.players);
+  async getAllPlayersFromLeague(leagueId: string): Promise<ESPNPlayer[]> {
+    try {
+      const leagueData = await this.getLeagueData(leagueId);
+      
+      if (!leagueData || !leagueData.teams) {
+        console.warn('No teams found in ESPN league data');
+        return [];
+      }
+
+      const allPlayers: ESPNPlayer[] = [];
+      
+      for (const team of leagueData.teams) {
+        if (team.roster && team.roster.entries) {
+          for (const entry of team.roster.entries) {
+            if (entry.playerPoolEntry && entry.playerPoolEntry.player) {
+              const player = entry.playerPoolEntry.player;
+              allPlayers.push({
+                espnId: player.id.toString(),
+                name: player.fullName,
+                position: player.defaultPositionId.toString(),
+                team: this.getTeamName(player.proTeamId),
+                status: player.injuryStatus || 'ACTIVE',
+                byeWeek: player.byeWeek || 0,
+              });
+            }
+          }
+        }
+      }
+
+      console.log(`Found ${allPlayers.length} players in ESPN league ${leagueId}`);
+      return allPlayers;
+    } catch (error) {
+      console.error('Error fetching players from ESPN league:', error);
+      throw error;
     }
-    
-    // Remove duplicates based on player ID
-    const uniquePlayers = new Map<string, ESPNPlayer>();
-    for (const player of allPlayers) {
-      uniquePlayers.set(player.id, player);
+  }
+
+  async getTeamRoster(leagueId: string, teamId: string): Promise<{ team: any; players: ESPNPlayer[] }> {
+    try {
+      const leagueData = await this.getLeagueData(leagueId);
+      
+      if (!leagueData || !leagueData.teams) {
+        throw new Error('No teams found in ESPN league data');
+      }
+
+      const team = leagueData.teams.find(t => t.id.toString() === teamId);
+      if (!team) {
+        throw new Error(`Team ${teamId} not found in league ${leagueId}`);
+      }
+
+      const players: ESPNPlayer[] = [];
+      
+      if (team.roster && team.roster.entries) {
+        for (const entry of team.roster.entries) {
+          if (entry.playerPoolEntry && entry.playerPoolEntry.player) {
+            const player = entry.playerPoolEntry.player;
+            players.push({
+              espnId: player.id.toString(),
+              name: player.fullName,
+              position: player.defaultPositionId.toString(),
+              team: this.getTeamName(player.proTeamId),
+              status: player.injuryStatus || 'ACTIVE',
+              byeWeek: player.byeWeek || 0,
+              ownership: entry.playerPoolEntry.ownership || 'OWNED',
+            });
+          }
+        }
+      }
+
+      console.log(`Found ${players.length} players on team ${teamId} in league ${leagueId}`);
+      return {
+        team: {
+          id: team.id,
+          name: team.name,
+          abbreviation: team.abbreviation,
+        },
+        players
+      };
+    } catch (error) {
+      console.error('Error fetching team roster from ESPN:', error);
+      throw error;
     }
-    
-    return Array.from(uniquePlayers.values());
   }
 } 

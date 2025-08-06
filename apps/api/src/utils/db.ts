@@ -71,12 +71,135 @@ export class DatabaseService {
     return stmt.bind(espnId, name, position, team, status || null, byeWeek || null).run();
   }
 
+  async upsertFantasyProsPlayer(
+    name: string,
+    position: string,
+    team: string,
+    byeWeek: number,
+    projectedPointsWeek: number,
+    projectedPointsSeason: number,
+    source: string = 'FantasyPros',
+    adp?: number,
+    riskRating?: string,
+    tier?: string,
+    rank?: number
+  ) {
+    // First, try to find existing player by name and position
+    const existingPlayer = await this.getPlayerByNameAndPosition(name, position);
+    
+    if (existingPlayer) {
+      // Update existing player
+      const updateStmt = this.db.prepare(`
+        UPDATE players 
+        SET team = ?, bye_week = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      await updateStmt.bind(team, byeWeek, existingPlayer.id).run();
+      
+      // Update or insert projection
+      const projectionStmt = this.db.prepare(`
+        INSERT INTO projections (player_id, week, season, projected_points, source, adp, risk_rating, tier, rank)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(player_id, week, season, source) 
+        DO UPDATE SET 
+          projected_points = excluded.projected_points,
+          adp = excluded.adp,
+          risk_rating = excluded.risk_rating,
+          tier = excluded.tier,
+          rank = excluded.rank,
+          updated_at = CURRENT_TIMESTAMP
+      `);
+      
+      return projectionStmt.bind(
+        existingPlayer.id,
+        1, // week 1 for now
+        2024, // current season
+        projectedPointsWeek,
+        source,
+        adp || null,
+        riskRating || null,
+        tier || null,
+        rank || null
+      ).run();
+    } else {
+      // Create new player
+      const playerStmt = this.db.prepare(`
+        INSERT INTO players (espn_id, name, position, team, bye_week)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      
+      const playerResult = await playerStmt.bind(
+        `fp_${name.toLowerCase().replace(/\s+/g, '_')}`, // Generate ESPN ID for FantasyPros players
+        name,
+        position,
+        team,
+        byeWeek
+      ).run();
+      
+      const playerId = playerResult.meta?.last_row_id;
+      if (!playerId) {
+        throw new Error('Failed to create player');
+      }
+      
+      // Insert projection
+      const projectionStmt = this.db.prepare(`
+        INSERT INTO projections (player_id, week, season, projected_points, source, adp, risk_rating, tier, rank)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      return projectionStmt.bind(
+        playerId,
+        1, // week 1 for now
+        2024, // current season
+        projectedPointsWeek,
+        source,
+        adp || null,
+        riskRating || null,
+        tier || null,
+        rank || null
+      ).run();
+    }
+  }
+
+  async getPlayerByNameAndPosition(name: string, position: string) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM players 
+      WHERE name = ? AND position = ?
+    `);
+    
+    return stmt.bind(name, position).first();
+  }
+
   async getAllPlayers() {
     const stmt = this.db.prepare(`
       SELECT * FROM players ORDER BY name
     `);
     
     return stmt.all();
+  }
+
+  async getPlayersWithProjections() {
+    const stmt = this.db.prepare(`
+      SELECT 
+        p.id,
+        p.name,
+        p.position,
+        p.team,
+        p.bye_week,
+        pr.projected_points as projected_points_week,
+        pr.source,
+        pr.adp,
+        pr.risk_rating,
+        pr.tier,
+        pr.rank
+      FROM players p
+      LEFT JOIN projections pr ON p.id = pr.player_id
+      WHERE pr.source = 'FantasyPros' AND pr.week = 1 AND pr.season = 2024
+      ORDER BY pr.projected_points DESC
+    `);
+    
+    const result = await stmt.all();
+    return result.results || [];
   }
 
   async getPlayerByEspnId(espnId: string) {
@@ -109,14 +232,35 @@ export class DatabaseService {
 
   async getProjectionsByWeek(week: number, season: number) {
     const stmt = this.db.prepare(`
-      SELECT p.*, pl.name, pl.position, pl.team
-      FROM projections p
-      JOIN players pl ON p.player_id = pl.id
-      WHERE p.week = ? AND p.season = ?
-      ORDER BY p.projected_points DESC
+      SELECT 
+        p.id as player_id,
+        p.name,
+        p.position,
+        p.team,
+        pr.projected_points,
+        pr.source,
+        pr.adp,
+        pr.risk_rating,
+        pr.tier,
+        pr.rank
+      FROM projections pr
+      JOIN players p ON pr.player_id = p.id
+      WHERE pr.week = ? AND pr.season = ?
+      ORDER BY pr.projected_points DESC
     `);
     
     return stmt.bind(week, season).all();
+  }
+
+  async getProjectionByPlayerId(playerId: number, week: number, season: number) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM projections 
+      WHERE player_id = ? AND week = ? AND season = ?
+      ORDER BY source = 'FantasyPros' DESC, updated_at DESC
+      LIMIT 1
+    `);
+    
+    return stmt.bind(playerId, week, season).first();
   }
 
   // Alerts

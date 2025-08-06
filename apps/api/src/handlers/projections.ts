@@ -71,65 +71,44 @@ export class ProjectionsHandler {
   async handleSyncProjections(request: Request): Promise<Response> {
     try {
       const body = await request.json() as any;
-      const { week, season = 2024 } = body;
+      const weekNum = body.week || 1;
+      const seasonNum = body.season || 2024;
 
-      if (!week) {
-        return new Response(
-          JSON.stringify({ error: 'week is required' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+      console.log(`Syncing projections for week ${weekNum}, season ${seasonNum}`);
 
-      const weekNum = parseInt(week, 10);
-      const seasonNum = parseInt(season, 10);
-
-      if (isNaN(weekNum) || isNaN(seasonNum)) {
-        return new Response(
-          JSON.stringify({ error: 'week and season must be valid numbers' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Fetch projections from FantasyPros
-      const fantasyProsProjections = await this.fantasyProsService.getProjections(weekNum, seasonNum);
+      // Get projections from FantasyPros
+      const fantasyProsProjections = await this.fantasyProsService.getProjections();
       
       if (!fantasyProsProjections || fantasyProsProjections.length === 0) {
         return new Response(
-          JSON.stringify({ 
-            success: true,
-            message: 'No projections available from FantasyPros',
-            syncedCount: 0,
-            errorCount: 0
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'No projections received from FantasyPros' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      // Sync projections to database
       let syncedCount = 0;
       let errorCount = 0;
 
       for (const projection of fantasyProsProjections) {
         try {
-          // Get player by ESPN ID (assuming FantasyPros uses ESPN IDs)
-          const player = await this.db.getPlayerByEspnId(projection.playerId);
+          // Find player by name and position
+          const player = await this.db.getPlayerByNameAndPosition(projection.name, projection.position);
           
-          if (!player) {
-            console.warn(`Player not found for ESPN ID: ${projection.playerId}`);
+          if (player) {
+            await this.db.upsertProjection(
+              (player as any).id,
+              weekNum,
+              seasonNum,
+              projection.projected_points_week,
+              projection.source
+            );
+            syncedCount++;
+          } else {
+            console.warn(`Player not found: ${projection.name} (${projection.position})`);
             errorCount++;
-            continue;
           }
-
-          await this.db.upsertProjection(
-            (player as any).id,
-            projection.week,
-            projection.season,
-            projection.projectedPoints,
-            projection.source
-          );
-          syncedCount++;
         } catch (error) {
-          console.error(`Error syncing projection for ${projection.playerName}:`, error);
+          console.error(`Error syncing projection for ${projection.name}:`, error);
           errorCount++;
         }
       }
@@ -137,21 +116,19 @@ export class ProjectionsHandler {
       return new Response(
         JSON.stringify({
           success: true,
-          message: `FantasyPros projections sync completed`,
+          message: 'Projections sync completed',
           syncedCount,
           errorCount,
-          totalProjections: fantasyProsProjections.length,
-          week: weekNum,
-          season: seasonNum
+          totalProjections: fantasyProsProjections.length
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
 
     } catch (error) {
-      console.error('FantasyPros sync error:', error);
+      console.error('Projections sync error:', error);
       return new Response(
         JSON.stringify({ 
-          error: 'FantasyPros sync failed',
+          error: 'Projections sync failed',
           details: error instanceof Error ? error.message : 'Unknown error'
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }

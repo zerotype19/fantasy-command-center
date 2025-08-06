@@ -1,19 +1,21 @@
-import { fetchJson, fantasyProsRateLimiter } from '../utils/fetchHelpers';
+import { fetchWithRetry, fetchJson, createRateLimiter } from '../utils/fetchHelpers';
 
-export interface FantasyProsProjection {
-  playerId: string;
-  playerName: string;
-  position: string;
+// Rate limiter for FantasyPros MCP
+const fantasyProsRateLimiter = createRateLimiter(10, 60000); // 10 requests per minute
+
+export interface FantasyProsPlayer {
+  name: string;
   team: string;
-  week: number;
-  season: number;
-  projectedPoints: number;
+  position: string;
+  bye_week: number;
+  projected_points_week: number;
+  projected_points_season: number;
   source: string;
-}
-
-export interface FantasyProsResponse {
-  projections?: FantasyProsProjection[];
-  error?: string;
+  // Additional fields that may be available
+  adp?: number;
+  risk_rating?: string;
+  tier?: string;
+  rank?: number;
 }
 
 export class FantasyProsService {
@@ -23,71 +25,70 @@ export class FantasyProsService {
     this.baseUrl = baseUrl;
   }
 
-  async getProjections(week: number, season: number): Promise<FantasyProsProjection[]> {
-    if (!fantasyProsRateLimiter()) {
-      throw new Error('FantasyPros API rate limit exceeded. Please try again later.');
-    }
-
-    try {
-      // Initial implementation - we'll refine this based on the actual API response structure
-      const response = await fetchJson<FantasyProsResponse>(`${this.baseUrl}`, {
+  async fetchRawMCP(): Promise<FantasyProsPlayer[]> {
+    console.log('Fetching FantasyPros MCP data...');
+    
+    const response = await fetchWithRetry(
+      this.baseUrl,
+      {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
-        }
-      });
-
-      if (response.error) {
-        throw new Error(`FantasyPros API error: ${response.error}`);
+          'Content-Type': 'application/json',
+        },
       }
+    );
 
-      if (!response.projections || !Array.isArray(response.projections)) {
-        console.warn('FantasyPros API returned unexpected response format');
-        return [];
-      }
+    if (!response.ok) {
+      throw new Error(`FantasyPros MCP request failed: ${response.status} ${response.statusText}`);
+    }
 
-      // Filter projections for the requested week and season
-      return response.projections.filter(projection => 
-        projection.week === week && projection.season === season
-      );
+    const data = await response.json();
+    console.log('FantasyPros MCP raw response:', JSON.stringify(data, null, 2));
+    
+    return data as FantasyProsPlayer[];
+  }
 
-    } catch (error) {
-      console.error('FantasyPros API error:', error);
+  async getProjections(): Promise<FantasyProsPlayer[]> {
+    try {
+      const rawData = await this.fetchRawMCP();
       
-      // Return empty array for now - we'll implement proper error handling once we see the actual API structure
-      return [];
+      // Normalize the data to our expected format
+      const normalizedData = rawData.map((player, index) => ({
+        name: player.name || 'Unknown Player',
+        team: player.team || 'FA',
+        position: player.position || 'UNK',
+        bye_week: player.bye_week || 0,
+        projected_points_week: player.projected_points_week || 0,
+        projected_points_season: player.projected_points_season || 0,
+        source: 'FantasyPros',
+        adp: player.adp,
+        risk_rating: player.risk_rating,
+        tier: player.tier,
+        rank: player.rank || index + 1,
+      }));
+
+      console.log(`Normalized ${normalizedData.length} players from FantasyPros MCP`);
+      return normalizedData;
+    } catch (error) {
+      console.error('Error fetching FantasyPros projections:', error);
+      throw error;
     }
   }
 
-  async getProjectionsForPlayer(
-    playerId: string,
-    week: number,
-    season: number
-  ): Promise<FantasyProsProjection | null> {
-    const projections = await this.getProjections(week, season);
-    return projections.find(p => p.playerId === playerId) || null;
+  async getProjectionsForPlayer(playerName: string): Promise<FantasyProsPlayer | null> {
+    const projections = await this.getProjections();
+    return projections.find(p => p.name.toLowerCase() === playerName.toLowerCase()) || null;
   }
 
-  async getProjectionsForPosition(
-    position: string,
-    week: number,
-    season: number
-  ): Promise<FantasyProsProjection[]> {
-    const projections = await this.getProjections(week, season);
-    return projections.filter(p => p.position === position);
+  async getProjectionsForPosition(position: string): Promise<FantasyProsPlayer[]> {
+    const projections = await this.getProjections();
+    return projections.filter(p => p.position.toUpperCase() === position.toUpperCase());
   }
 
-  async getTopProjections(
-    position: string,
-    week: number,
-    season: number,
-    limit: number = 20
-  ): Promise<FantasyProsProjection[]> {
-    const projections = await this.getProjectionsForPosition(position, week, season);
-    
-    // Sort by projected points descending and take top N
+  async getTopProjections(limit: number = 25): Promise<FantasyProsPlayer[]> {
+    const projections = await this.getProjections();
     return projections
-      .sort((a, b) => b.projectedPoints - a.projectedPoints)
+      .sort((a, b) => b.projected_points_season - a.projected_points_season)
       .slice(0, limit);
   }
 } 
