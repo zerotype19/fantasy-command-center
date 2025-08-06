@@ -1,0 +1,23 @@
+{
+  "name": "@fantasy-command-center/api",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker API for Fantasy Command Center",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler build",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply fantasy_command_db",
+    "db:create": "wrangler d1 migrations create fantasy_command_db"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "wrangler": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

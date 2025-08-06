@@ -1,0 +1,22 @@
+{
+  "name": "fantasy-command-center",
+  "version": "1.0.0",
+  "description": "Fantasy Football Command Center - Monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/api",
+    "build": "npm run build --workspaces",
+    "deploy": "npm run deploy --workspace=apps/api"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

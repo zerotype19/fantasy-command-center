@@ -1,0 +1,20 @@
+name = "fantasy-command-center-api"
+main = "src/index.ts"
+compatibility_date = "2024-08-06"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "npm install && npm run build"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fantasy_command_db"
+database_id = "CHANGE_ME" # Replace with actual D1 database ID from Cloudflare Dashboard
+
+[triggers]
+crons = ["0 * * * *"] # hourly ingestion job
+
+[vars]
+FANTASY_PROS_MCP_URL = "https://smithery.ai/server/@DynamicEndpoints/fantasy-pros-mcp"
+NOAA_BASE_URL = "https://api.weather.gov"
+ESPN_BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl" 
