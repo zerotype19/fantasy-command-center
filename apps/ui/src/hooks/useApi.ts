@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 // Fallback API URL if environment variable is not set
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fantasy-command-center-api.kevin-mcgovern.workers.dev';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://fantasy-command-center-api.kevin-mcgovern.workers.dev').replace(/\/$/, '');
 
 // Debug logging
 console.log('Environment variables:', {
