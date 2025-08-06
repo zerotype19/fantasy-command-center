@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useApi } from '../hooks/useApi';
 import { LeagueForm } from '../components/LeagueForm';
 
@@ -19,17 +19,17 @@ export function League() {
   const { get, loading, error } = useApi();
   const [leagueData, setLeagueData] = useState<LeagueSettings | null>(null);
 
-  useEffect(() => {
-    const fetchLeagueData = async () => {
-      // Use default values for now since we don't have user authentication
-      const data = await get<LeagueSettings>('/league?userId=default&leagueId=default');
-      if (data) {
-        setLeagueData(data);
-      }
-    };
-
-    fetchLeagueData();
+  const fetchLeagueData = useCallback(async () => {
+    // Use default values for now since we don't have user authentication
+    const data = await get<LeagueSettings>('/league?userId=default&leagueId=default');
+    if (data) {
+      setLeagueData(data);
+    }
   }, [get]);
+
+  useEffect(() => {
+    fetchLeagueData();
+  }, [fetchLeagueData]);
 
   return (
     <div className="space-y-6">
@@ -40,7 +40,7 @@ export function League() {
         </p>
       </div>
 
-      <LeagueForm />
+      <LeagueForm onSave={fetchLeagueData} />
 
       {/* Debug Output */}
       <div className="bg-white shadow rounded-lg p-6">

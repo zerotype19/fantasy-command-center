@@ -11,7 +11,11 @@ interface LeagueSettings {
   waiverBudget: number;
 }
 
-export function LeagueForm() {
+interface LeagueFormProps {
+  onSave?: () => void;
+}
+
+export function LeagueForm({ onSave }: LeagueFormProps) {
   const { post, loading, error } = useApi();
   const [formData, setFormData] = useState<LeagueSettings>({
     userId: 'default-user', // TODO: Replace with actual user ID
@@ -35,6 +39,8 @@ export function LeagueForm() {
     const result = await post('/league', formData);
     if (result) {
       alert('League settings saved successfully!');
+      // Notify parent component to refresh data
+      onSave?.();
     }
   };
 
