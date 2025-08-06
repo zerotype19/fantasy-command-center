@@ -2,6 +2,14 @@ import { useState, useCallback } from 'react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+// Debug logging
+console.log('Environment variables:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  MODE: import.meta.env.MODE,
+  DEV: import.meta.env.DEV,
+  PROD: import.meta.env.PROD
+});
+
 interface ApiResponse<T> {
   data: T | null;
   loading: boolean;
@@ -16,9 +24,13 @@ export function useApi() {
     setLoading(true);
     setError(null);
     
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making GET request to: ${fullUrl}`);
+    console.log(`API_BASE_URL: ${API_BASE_URL}`);
+    console.log(`endpoint: ${endpoint}`);
+    
     try {
-      console.log(`Making GET request to: ${API_BASE_URL}${endpoint}`);
-      const response = await fetch(`${API_BASE_URL}${endpoint}`);
+      const response = await fetch(fullUrl);
       
       console.log(`Response status: ${response.status}`);
       console.log(`Response headers:`, Object.fromEntries(response.headers.entries()));
@@ -53,9 +65,11 @@ export function useApi() {
     setLoading(true);
     setError(null);
     
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making POST request to: ${fullUrl}`);
+    
     try {
-      console.log(`Making POST request to: ${API_BASE_URL}${endpoint}`);
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,9 +109,11 @@ export function useApi() {
     setLoading(true);
     setError(null);
     
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making PATCH request to: ${fullUrl}`);
+    
     try {
-      console.log(`Making PATCH request to: ${API_BASE_URL}${endpoint}`);
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
