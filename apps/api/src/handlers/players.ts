@@ -1,5 +1,5 @@
 import { DatabaseService } from '../utils/db';
-import { fetchAllPlayers, filterPlayersForDevelopment, validatePlayer, transformSleeperPlayer } from '../services/sleeper';
+import { fetchAllPlayers, filterPlayersForDevelopment, validatePlayer, transformSleeperPlayer, fetchTrendingPlayers } from '../services/sleeper';
 
 export class PlayersHandler {
   private db: DatabaseService;
@@ -105,6 +105,58 @@ export class PlayersHandler {
       console.error('Sync Sleeper error:', error);
       
       let errorMessage = 'Failed to sync players from Sleeper';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  async handleTrendingPlayers(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const type = url.searchParams.get('type') as 'add' | 'drop' || 'add';
+      const lookbackHours = parseInt(url.searchParams.get('lookback_hours') || '24');
+      const limit = parseInt(url.searchParams.get('limit') || '25');
+
+      console.log(`Fetching trending players (${type}) from Sleeper...`);
+
+      // Fetch trending players from Sleeper API
+      const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours, limit);
+
+      // Get player details for trending players
+      const playerDetails = await this.db.getPlayersBySleeperIds(
+        trendingPlayers.map(p => p.player_id)
+      );
+
+      // Combine trending data with player details
+      const enrichedTrendingPlayers = trendingPlayers.map(trending => {
+        const playerDetail = playerDetails.find(p => p.sleeper_id === trending.player_id);
+        return {
+          ...trending,
+          player: playerDetail || null
+        };
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type,
+          lookback_hours: lookbackHours,
+          limit,
+          players: enrichedTrendingPlayers
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    } catch (error) {
+      console.error('Trending players error:', error);
+      
+      let errorMessage = 'Failed to fetch trending players from Sleeper';
       if (error instanceof Error) {
         errorMessage = error.message;
       }

@@ -80,6 +80,14 @@ export default {
           }
           break;
 
+        case '/trending/players':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTrendingPlayers(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/sync/espn':
           if (request.method === 'POST') {
             response = await playersHandler.handleSyncESPN(request);

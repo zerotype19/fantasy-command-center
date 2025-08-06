@@ -107,11 +107,37 @@ export class DatabaseService {
     position: string,
     team: string,
     status: string,
-    byeWeek: number
+    byeWeek: number | null,
+    age: number | null,
+    yearsExp: number | null,
+    college: string | null,
+    weight: string | null,
+    height: string | null,
+    jerseyNumber: number | null,
+    fantasyPositions: string | null,
+    fantasyDataId: number | null,
+    searchRank: number | null,
+    injuryStatus: string | null,
+    injuryStartDate: string | null,
+    injuryNotes: string | null,
+    practiceParticipation: string | null,
+    depthChartPosition: string | null,
+    depthChartOrder: number | null,
+    yahooId: number | null,
+    rotowireId: number | null,
+    rotoworldId: number | null,
+    sportradarId: string | null
   ) {
     const stmt = this.db.prepare(`
-      INSERT INTO players (sleeper_id, espn_id, name, position, team, status, bye_week)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO players (
+        sleeper_id, espn_id, name, position, team, status, bye_week,
+        age, years_exp, college, weight, height, jersey_number,
+        fantasy_positions, fantasy_data_id, search_rank,
+        injury_status, injury_start_date, injury_notes, practice_participation,
+        depth_chart_position, depth_chart_order,
+        yahoo_id, rotowire_id, rotoworld_id, sportradar_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(sleeper_id) 
       DO UPDATE SET 
         espn_id = excluded.espn_id,
@@ -120,16 +146,49 @@ export class DatabaseService {
         team = excluded.team,
         status = excluded.status,
         bye_week = excluded.bye_week,
+        age = excluded.age,
+        years_exp = excluded.years_exp,
+        college = excluded.college,
+        weight = excluded.weight,
+        height = excluded.height,
+        jersey_number = excluded.jersey_number,
+        fantasy_positions = excluded.fantasy_positions,
+        fantasy_data_id = excluded.fantasy_data_id,
+        search_rank = excluded.search_rank,
+        injury_status = excluded.injury_status,
+        injury_start_date = excluded.injury_start_date,
+        injury_notes = excluded.injury_notes,
+        practice_participation = excluded.practice_participation,
+        depth_chart_position = excluded.depth_chart_position,
+        depth_chart_order = excluded.depth_chart_order,
+        yahoo_id = excluded.yahoo_id,
+        rotowire_id = excluded.rotowire_id,
+        rotoworld_id = excluded.rotoworld_id,
+        sportradar_id = excluded.sportradar_id,
         updated_at = CURRENT_TIMESTAMP
     `);
     
-    return stmt.bind(sleeperId, espnId, name, position, team, status, byeWeek).run();
+    return stmt.bind(
+      sleeperId, espnId, name, position, team, status, byeWeek,
+      age, yearsExp, college, weight, height, jerseyNumber,
+      fantasyPositions, fantasyDataId, searchRank,
+      injuryStatus, injuryStartDate, injuryNotes, practiceParticipation,
+      depthChartPosition, depthChartOrder,
+      yahooId, rotowireId, rotoworldId, sportradarId
+    ).run();
   }
 
   async upsertSleeperPlayers(players: any[]) {
     const stmt = this.db.prepare(`
-      INSERT INTO players (sleeper_id, espn_id, name, position, team, status, bye_week)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO players (
+        sleeper_id, espn_id, name, position, team, status, bye_week,
+        age, years_exp, college, weight, height, jersey_number,
+        fantasy_positions, fantasy_data_id, search_rank,
+        injury_status, injury_start_date, injury_notes, practice_participation,
+        depth_chart_position, depth_chart_order,
+        yahoo_id, rotowire_id, rotoworld_id, sportradar_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(sleeper_id) 
       DO UPDATE SET 
         espn_id = excluded.espn_id,
@@ -138,6 +197,25 @@ export class DatabaseService {
         team = excluded.team,
         status = excluded.status,
         bye_week = excluded.bye_week,
+        age = excluded.age,
+        years_exp = excluded.years_exp,
+        college = excluded.college,
+        weight = excluded.weight,
+        height = excluded.height,
+        jersey_number = excluded.jersey_number,
+        fantasy_positions = excluded.fantasy_positions,
+        fantasy_data_id = excluded.fantasy_data_id,
+        search_rank = excluded.search_rank,
+        injury_status = excluded.injury_status,
+        injury_start_date = excluded.injury_start_date,
+        injury_notes = excluded.injury_notes,
+        practice_participation = excluded.practice_participation,
+        depth_chart_position = excluded.depth_chart_position,
+        depth_chart_order = excluded.depth_chart_order,
+        yahoo_id = excluded.yahoo_id,
+        rotowire_id = excluded.rotowire_id,
+        rotoworld_id = excluded.rotoworld_id,
+        sportradar_id = excluded.sportradar_id,
         updated_at = CURRENT_TIMESTAMP
     `);
     
@@ -149,7 +227,26 @@ export class DatabaseService {
         player.position,
         player.team,
         player.status,
-        player.bye_week
+        player.bye_week,
+        player.age,
+        player.years_exp,
+        player.college,
+        player.weight,
+        player.height,
+        player.jersey_number,
+        player.fantasy_positions,
+        player.fantasy_data_id,
+        player.search_rank,
+        player.injury_status,
+        player.injury_start_date,
+        player.injury_notes,
+        player.practice_participation,
+        player.depth_chart_position,
+        player.depth_chart_order,
+        player.yahoo_id,
+        player.rotowire_id,
+        player.rotoworld_id,
+        player.sportradar_id
       )
     );
     
@@ -162,6 +259,18 @@ export class DatabaseService {
     `);
     
     return stmt.bind(sleeperId).first();
+  }
+
+  async getPlayersBySleeperIds(sleeperIds: string[]) {
+    if (sleeperIds.length === 0) return [];
+    
+    const placeholders = sleeperIds.map(() => '?').join(',');
+    const stmt = this.db.prepare(`
+      SELECT * FROM players WHERE sleeper_id IN (${placeholders})
+    `);
+    
+    const result = await stmt.bind(...sleeperIds).all();
+    return result.results || [];
   }
 
   async getPlayerByEspnId(espnId: string) {
