@@ -29,6 +29,7 @@ export function LoadMyTeam() {
   const [leagueId, setLeagueId] = useState('');
   const [teamId, setTeamId] = useState('');
   const [teamData, setTeamData] = useState<TeamData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadTeam = useCallback(async () => {
     if (!leagueId || !teamId) {
@@ -36,9 +37,16 @@ export function LoadMyTeam() {
       return;
     }
 
-    const data = await get<TeamData>(`/team/${leagueId}/${teamId}`);
-    if (data) {
-      setTeamData(data);
+    setLoadError(null);
+    try {
+      const data = await get<TeamData>(`/team/${leagueId}/${teamId}`);
+      if (data) {
+        setTeamData(data);
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to load team';
+      setLoadError(errorMessage);
+      console.error('Load team error:', err);
     }
   }, [get, leagueId, teamId]);
 
@@ -94,9 +102,19 @@ export function LoadMyTeam() {
       </div>
 
       {/* Error Display */}
-      {error && (
+      {(error || loadError) && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-sm text-red-600">{error}</p>
+          <h3 className="text-sm font-medium text-red-800 mb-2">Error</h3>
+          <p className="text-sm text-red-600 mb-3">{loadError || error}</p>
+          <div className="text-sm text-red-700">
+            <p className="font-medium mb-1">To fix this issue:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Make sure you're signed into ESPN in your browser</li>
+              <li>Verify the League ID and Team ID are correct</li>
+              <li>Ensure you have access to the league (it may be private)</li>
+              <li>Check that the team ID exists in the league</li>
+            </ul>
+          </div>
         </div>
       )}
 
@@ -188,6 +206,11 @@ export function LoadMyTeam() {
           <li>3. The <code className="bg-blue-100 px-1 rounded">leagueId</code> is your League ID</li>
           <li>4. The <code className="bg-blue-100 px-1 rounded">teamId</code> is your Team ID</li>
         </ol>
+        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+          <p className="text-sm text-yellow-800">
+            <strong>Note:</strong> If you get an "unauthorized" error, make sure you're signed into ESPN in your browser and have access to the league.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -27,11 +27,20 @@ export async function fetchLeagueData(leagueId: string): Promise<any> {
   }, 1); // Retry once if failed
 
   if (!response.ok) {
+    const errorText = await response.text();
     console.error(`Failed to fetch ESPN league data for league ${leagueId}:`, {
       status: response.status,
-      statusText: response.statusText
+      statusText: response.statusText,
+      errorText: errorText.substring(0, 500)
     });
-    throw new Error(`Failed to fetch ESPN league data: ${response.status} ${response.statusText}`);
+    
+    if (response.status === 401) {
+      throw new Error(`League ${leagueId} is private or requires authentication. Please ensure you have access to this league.`);
+    } else if (response.status === 404) {
+      throw new Error(`League ${leagueId} not found. Please check the league ID.`);
+    } else {
+      throw new Error(`Failed to fetch ESPN league data: ${response.status} ${response.statusText}`);
+    }
   }
 
   const data = await response.json();
@@ -53,11 +62,20 @@ export async function fetchTeamRoster(leagueId: string, teamId: number): Promise
   }, 1); // Retry once if failed
 
   if (!response.ok) {
+    const errorText = await response.text();
     console.error(`Failed to fetch ESPN team roster for league ${leagueId}, team ${teamId}:`, {
       status: response.status,
-      statusText: response.statusText
+      statusText: response.statusText,
+      errorText: errorText.substring(0, 500)
     });
-    throw new Error(`Failed to fetch ESPN team roster: ${response.status} ${response.statusText}`);
+    
+    if (response.status === 401) {
+      throw new Error(`League ${leagueId} is private or requires authentication. Please ensure you have access to this league.`);
+    } else if (response.status === 404) {
+      throw new Error(`League ${leagueId} or team ${teamId} not found. Please check the IDs.`);
+    } else {
+      throw new Error(`Failed to fetch ESPN team roster: ${response.status} ${response.statusText}`);
+    }
   }
 
   const data = await response.json();

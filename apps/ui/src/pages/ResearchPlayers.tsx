@@ -23,6 +23,7 @@ export function ResearchPlayers() {
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [leagueId, setLeagueId] = useState('');
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const fetchPlayers = useCallback(async () => {
     const data = await get<Player[]>('/players?limit=100');
@@ -38,10 +39,17 @@ export function ResearchPlayers() {
       return;
     }
     
-    const result = await post(`/sync/players/${leagueId}`, {});
-    if (result) {
-      alert('ESPN players synced successfully!');
-      fetchPlayers();
+    setSyncError(null);
+    try {
+      const result = await post(`/sync/players/${leagueId}`, {});
+      if (result) {
+        alert('ESPN players synced successfully!');
+        fetchPlayers();
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to sync players';
+      setSyncError(errorMessage);
+      console.error('Sync error:', err);
     }
   }, [post, fetchPlayers, leagueId]);
 
@@ -120,6 +128,23 @@ export function ResearchPlayers() {
           </div>
         </div>
       </div>
+
+      {/* Sync Error Display */}
+      {syncError && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <h3 className="text-sm font-medium text-red-800 mb-2">Sync Error</h3>
+          <p className="text-sm text-red-600 mb-3">{syncError}</p>
+          <div className="text-sm text-red-700">
+            <p className="font-medium mb-1">To fix this issue:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Make sure you're signed into ESPN in your browser</li>
+              <li>Verify the league ID is correct</li>
+              <li>Ensure you have access to the league (it may be private)</li>
+              <li>Try using a different league ID if available</li>
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white shadow rounded-lg p-6">
