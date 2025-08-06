@@ -102,6 +102,7 @@ export class DatabaseService {
   // Players - Sleeper Integration
   async upsertSleeperPlayer(
     sleeperId: string,
+    espnId: string,
     name: string,
     position: string,
     team: string,
@@ -109,10 +110,11 @@ export class DatabaseService {
     byeWeek: number
   ) {
     const stmt = this.db.prepare(`
-      INSERT INTO players (sleeper_id, name, position, team, status, bye_week)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO players (sleeper_id, espn_id, name, position, team, status, bye_week)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(sleeper_id) 
       DO UPDATE SET 
+        espn_id = excluded.espn_id,
         name = excluded.name,
         position = excluded.position,
         team = excluded.team,
@@ -121,15 +123,16 @@ export class DatabaseService {
         updated_at = CURRENT_TIMESTAMP
     `);
     
-    return stmt.bind(sleeperId, name, position, team, status, byeWeek).run();
+    return stmt.bind(sleeperId, espnId, name, position, team, status, byeWeek).run();
   }
 
   async upsertSleeperPlayers(players: any[]) {
     const stmt = this.db.prepare(`
-      INSERT INTO players (sleeper_id, name, position, team, status, bye_week)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO players (sleeper_id, espn_id, name, position, team, status, bye_week)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(sleeper_id) 
       DO UPDATE SET 
+        espn_id = excluded.espn_id,
         name = excluded.name,
         position = excluded.position,
         team = excluded.team,
@@ -141,6 +144,7 @@ export class DatabaseService {
     const batch = players.map(player => 
       stmt.bind(
         player.sleeper_id,
+        player.espn_id,
         player.name,
         player.position,
         player.team,

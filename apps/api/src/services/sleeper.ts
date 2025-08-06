@@ -85,6 +85,7 @@ export function validatePlayer(player: SleeperPlayer): { isValid: boolean; missi
 export function transformSleeperPlayer(player: SleeperPlayer): any {
   return {
     sleeper_id: player.player_id,
+    espn_id: `SLEEPER_${player.player_id}`, // Provide a default ESPN ID for Sleeper players
     name: player.full_name,
     position: player.position,
     team: player.team || 'FA', // Use 'FA' (Free Agent) if no team
