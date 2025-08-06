@@ -21,7 +21,8 @@ export function League() {
 
   useEffect(() => {
     const fetchLeagueData = async () => {
-      const data = await get<LeagueSettings>('/league');
+      // Use default values for now since we don't have user authentication
+      const data = await get<LeagueSettings>('/league?userId=default&leagueId=default');
       if (data) {
         setLeagueData(data);
       }
