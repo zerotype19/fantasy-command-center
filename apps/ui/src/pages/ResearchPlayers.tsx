@@ -3,16 +3,15 @@ import { useApi } from '../hooks/useApi';
 
 interface Player {
   id: number;
+  espn_id: string;
   name: string;
   position: string;
   team: string;
-  bye_week: number;
-  projected_points_week: number;
-  source: string;
-  adp?: number;
-  risk_rating?: string;
-  tier?: string;
-  rank?: number;
+  status: string | null;
+  bye_week: number | null;
+  projected_points_week: number | null;
+  projected_points_season: number | null;
+  projection_source: string;
 }
 
 export function ResearchPlayers() {
@@ -21,8 +20,9 @@ export function ResearchPlayers() {
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
-  const [sortBy, setSortBy] = useState('projected_points_week');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [leagueId, setLeagueId] = useState('');
 
   const fetchPlayers = useCallback(async () => {
     const data = await get<Player[]>('/players?limit=100');
@@ -32,13 +32,18 @@ export function ResearchPlayers() {
     }
   }, [get]);
 
-  const syncFantasyPros = useCallback(async () => {
-    const result = await post('/sync/fantasypros', {});
+  const syncESPNPlayers = useCallback(async () => {
+    if (!leagueId.trim()) {
+      alert('Please enter a League ID');
+      return;
+    }
+    
+    const result = await post(`/sync/players/${leagueId}`, {});
     if (result) {
-      alert('FantasyPros data synced successfully!');
+      alert('ESPN players synced successfully!');
       fetchPlayers();
     }
-  }, [post, fetchPlayers]);
+  }, [post, fetchPlayers, leagueId]);
 
   useEffect(() => {
     fetchPlayers();
@@ -94,16 +99,25 @@ export function ResearchPlayers() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Research Players</h1>
             <p className="text-gray-600 mt-1">
-              Explore all players with projections from FantasyPros
+              Explore all players from ESPN leagues (no projections available yet)
             </p>
           </div>
-          <button
-            onClick={syncFantasyPros}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
-          >
-            {loading ? 'Syncing...' : 'Sync FantasyPros'}
-          </button>
+          <div className="flex items-center space-x-4">
+            <input
+              type="text"
+              value={leagueId}
+              onChange={(e) => setLeagueId(e.target.value)}
+              placeholder="Enter ESPN League ID"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={syncESPNPlayers}
+              disabled={loading || !leagueId.trim()}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              {loading ? 'Syncing...' : 'Sync ESPN Players'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -148,12 +162,11 @@ export function ResearchPlayers() {
               onChange={(e) => setSortBy(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="projected_points_week">Projected Points (Week)</option>
               <option value="name">Name</option>
               <option value="position">Position</option>
               <option value="team">Team</option>
               <option value="bye_week">Bye Week</option>
-              <option value="adp">ADP</option>
+              <option value="status">Status</option>
             </select>
           </div>
 
@@ -166,8 +179,8 @@ export function ResearchPlayers() {
               onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="desc">Descending</option>
               <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
             </select>
           </div>
         </div>
@@ -211,16 +224,13 @@ export function ResearchPlayers() {
                     Team
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Bye
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Proj. Points
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ADP
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tier
+                    Proj. Source
                   </th>
                 </tr>
               </thead>
@@ -241,16 +251,13 @@ export function ResearchPlayers() {
                       {player.team}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {player.status || 'Healthy'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.bye_week || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {player.projected_points_week?.toFixed(1) || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {player.adp || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {player.tier || '-'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {player.projection_source === 'none' ? 'No projections' : player.projection_source}
                     </td>
                   </tr>
                 ))}

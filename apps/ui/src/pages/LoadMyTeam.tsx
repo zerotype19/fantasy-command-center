@@ -2,19 +2,19 @@ import { useState, useCallback } from 'react';
 import { useApi } from '../hooks/useApi';
 
 interface TeamPlayer {
-  player_id: number;
+  espn_id: string;
   name: string;
   position: string;
   team: string;
-  bye_week: number;
-  projected_points_week: number;
-  projected_points_season: number;
-  espn_id?: string;
-  espn_status?: string;
-  espn_ownership?: string;
+  status: string;
+  bye_week: number | null;
+  projected_points_week: number | null;
+  projected_points_season: number | null;
+  projection_source: string;
 }
 
 interface TeamData {
+  success: boolean;
   team: {
     id: number;
     name: string;
@@ -126,19 +126,19 @@ export function LoadMyTeam() {
                     Team
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Bye
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Proj. Points
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {teamData.players.map((player) => (
-                  <tr key={player.player_id || player.espn_id} className="hover:bg-gray-50">
+                  <tr key={player.espn_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {player.name}
@@ -152,22 +152,24 @@ export function LoadMyTeam() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.team}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        player.status === 'healthy' 
+                          ? 'bg-green-100 text-green-800'
+                          : player.status === 'questionable'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : player.status === 'out'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {player.status || 'Healthy'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.bye_week || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.projected_points_week?.toFixed(1) || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        player.espn_status === 'ACTIVE' 
-                          ? 'bg-green-100 text-green-800'
-                          : player.espn_status === 'INJURED'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {player.espn_status || 'Unknown'}
-                      </span>
                     </td>
                   </tr>
                 ))}
