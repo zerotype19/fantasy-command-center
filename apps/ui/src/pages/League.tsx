@@ -20,8 +20,8 @@ export function League() {
   const [leagueData, setLeagueData] = useState<LeagueSettings | null>(null);
 
   const fetchLeagueData = useCallback(async () => {
-    // Use default values for now since we don't have user authentication
-    const data = await get<LeagueSettings>('/league?userId=default&leagueId=default');
+    // Use the same userId as the form ('default-user') to match the saved data
+    const data = await get<LeagueSettings>('/league?userId=default-user&leagueId=default');
     if (data) {
       setLeagueData(data);
     }
