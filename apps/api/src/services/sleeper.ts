@@ -7,10 +7,10 @@ export interface SleeperPlayer {
   player_id: string;
   full_name: string;
   position: string;
-  team: string;
+  team: string | null;
   status: string;
-  bye: number;
   active: boolean;
+  espn_id: number | null;
   [key: string]: any; // Allow other fields
 }
 
@@ -85,11 +85,11 @@ export function validatePlayer(player: SleeperPlayer): { isValid: boolean; missi
 export function transformSleeperPlayer(player: SleeperPlayer): any {
   return {
     sleeper_id: player.player_id,
-    espn_id: `SLEEPER_${player.player_id}`, // Provide a default ESPN ID for Sleeper players
+    espn_id: player.espn_id ? player.espn_id.toString() : `SLEEPER_${player.player_id}`, // Use real ESPN ID if available
     name: player.full_name,
     position: player.position,
     team: player.team || 'FA', // Use 'FA' (Free Agent) if no team
     status: player.status || 'Active',
-    bye_week: player.bye || null
+    bye_week: null // Sleeper API doesn't provide bye week data
   };
 } 
