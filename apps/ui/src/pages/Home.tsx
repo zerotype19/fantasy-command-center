@@ -13,20 +13,21 @@ interface Alert {
   updated_at: string;
 }
 
-interface Projection {
+interface Player {
   id: number;
-  player_id: number;
-  week: number;
-  season: number;
-  projected_points: number;
-  source: string;
-  created_at: string;
-  updated_at: string;
+  espn_id: string;
+  name: string;
+  position: string;
+  team: string;
+  status: string | null;
+  bye_week: number | null;
+  projected_points_week: number | null;
+  projected_points_season: number | null;
+  projection_source: string;
 }
 
 interface Stats {
   playerCount: number;
-  projectionCount: number;
   lastUpdate: string | null;
 }
 
@@ -34,45 +35,24 @@ export function Home() {
   const { get, loading, error } = useApi();
   const [stats, setStats] = useState<Stats>({
     playerCount: 0,
-    projectionCount: 0,
     lastUpdate: null,
   });
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
-  // Get current NFL week and season
-  const getCurrentWeek = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    // Simple logic - you might want to refine this based on actual NFL schedule
-    return { week: 1, season: year };
-  };
-
   useEffect(() => {
     const fetchData = async () => {
-      const { week, season } = getCurrentWeek();
-      
       // Get players
-      const playersData = await get<{players: any[], count: number}>('/players');
-      
-      // Get projections with required parameters
-      const projectionsData = await get<Projection[]>(`/projections?week=${week}&season=${season}`);
+      const playersData = await get<Player[]>('/players?limit=100');
       
       // Get alerts with a default userId (we'll improve this later)
       const alertsData = await get<Alert[]>(`/alerts?userId=default`);
       
-      if (playersData && playersData.players) {
+      if (playersData && Array.isArray(playersData)) {
         setStats(prev => ({
           ...prev,
-          playerCount: playersData.players.length,
-        }));
-      }
-      
-      if (projectionsData && Array.isArray(projectionsData)) {
-        setStats(prev => ({
-          ...prev,
-          projectionCount: projectionsData.length,
-          lastUpdate: projectionsData.length > 0 
-            ? new Date(projectionsData[0].updated_at).toLocaleString()
+          playerCount: playersData.length,
+          lastUpdate: playersData.length > 0 
+            ? new Date().toLocaleString() // Since we don't have projection timestamps, use current time
             : null,
         }));
       }
@@ -88,7 +68,7 @@ export function Home() {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -106,30 +86,6 @@ export function Home() {
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
                     {loading ? '...' : stats.playerCount}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Projections
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    {loading ? '...' : stats.projectionCount}
                   </dd>
                 </dl>
               </div>

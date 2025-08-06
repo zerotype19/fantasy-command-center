@@ -7,68 +7,29 @@ interface Player {
   name: string;
   position: string;
   team: string;
-  status?: string;
-  bye_week?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Projection {
-  id: number;
-  player_id: number;
-  week: number;
-  season: number;
-  projected_points: number;
-  source: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PlayerWithProjection extends Player {
-  projection?: Projection;
+  status: string | null;
+  bye_week: number | null;
+  projected_points_week: number | null;
+  projected_points_season: number | null;
+  projection_source: string;
 }
 
 export function PlayerList() {
   const { get, loading, error } = useApi();
-  const [players, setPlayers] = useState<PlayerWithProjection[]>([]);
-  const [projections, setProjections] = useState<Projection[]>([]);
-
-  // Get current NFL week and season
-  const getCurrentWeek = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    // Simple logic - you might want to refine this based on actual NFL schedule
-    return { week: 1, season: year };
-  };
+  const [players, setPlayers] = useState<Player[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const { week, season } = getCurrentWeek();
-      
       // Get players with proper response structure
-      const playersData = await get<{players: Player[], count: number}>('/players');
-      const projectionsData = await get<Projection[]>(`/projections?week=${week}&season=${season}`);
+      const playersData = await get<Player[]>('/players?limit=100');
       
-      if (playersData && playersData.players) {
-        setPlayers(playersData.players);
-      }
-      
-      if (projectionsData && Array.isArray(projectionsData)) {
-        setProjections(projectionsData);
+      if (playersData && Array.isArray(playersData)) {
+        setPlayers(playersData);
       }
     };
 
     fetchData();
   }, [get]);
-
-  // Combine players with their projections
-  const playersWithProjections = players.map(player => {
-    const projection = projections.find(p => p.player_id === player.id);
-    return {
-      ...player,
-      projection,
-    };
-  });
 
   const getPositionColor = (position: string) => {
     const colors: { [key: string]: string } = {
@@ -80,6 +41,19 @@ export function PlayerList() {
       DEF: 'bg-red-100 text-red-800',
     };
     return colors[position] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusColor = (status: string | null) => {
+    if (!status) return 'bg-green-100 text-green-800';
+    
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('out') || statusLower.includes('ir')) {
+      return 'bg-red-100 text-red-800';
+    } else if (statusLower.includes('questionable') || statusLower.includes('doubtful')) {
+      return 'bg-yellow-100 text-yellow-800';
+    } else {
+      return 'bg-green-100 text-green-800';
+    }
   };
 
   if (loading) {
@@ -125,15 +99,18 @@ export function PlayerList() {
                 Team
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Bye Week
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Projected Points
+                Proj. Source
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {playersWithProjections.map((player) => (
+            {players.map((player) => (
               <tr key={player.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -141,11 +118,6 @@ export function PlayerList() {
                       <div className="text-sm font-medium text-gray-900">
                         {player.name}
                       </div>
-                      {player.status && (
-                        <div className="text-sm text-gray-500">
-                          {player.status}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </td>
@@ -157,17 +129,16 @@ export function PlayerList() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {player.team}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(player.status)}`}>
+                    {player.status || 'Healthy'}
+                  </span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {player.bye_week || '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {player.projection ? (
-                    <span className="font-medium text-green-600">
-                      {player.projection.projected_points.toFixed(1)}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {player.projection_source === 'none' ? 'No projections' : player.projection_source}
                 </td>
               </tr>
             ))}
