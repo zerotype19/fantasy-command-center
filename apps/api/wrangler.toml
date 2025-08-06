@@ -9,7 +9,7 @@ command = "npm install && npm run build"
 [[d1_databases]]
 binding = "DB"
 database_name = "fantasy_command_db"
-database_id = "CHANGE_ME" # Replace with actual D1 database ID from Cloudflare Dashboard
+database_id = "620d2c79-c751-4bdd-8ec4-afe56fc9b3a1"
 
 [triggers]
 crons = ["0 * * * *"] # hourly ingestion job
