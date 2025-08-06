@@ -28,20 +28,35 @@ export function Home() {
   });
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
+  // Get current NFL week and season
+  const getCurrentWeek = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    // Simple logic - you might want to refine this based on actual NFL schedule
+    return { week: 1, season: year };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
-      const playersData = await get<Player[]>('/players');
-      const projectionsData = await get<Projection[]>('/projections');
-      const alertsData = await get<Alert[]>('/alerts');
+      const { week, season } = getCurrentWeek();
       
-      if (playersData) {
+      // Get players
+      const playersData = await get<{players: any[], count: number}>('/players');
+      
+      // Get projections with required parameters
+      const projectionsData = await get<Projection[]>(`/projections?week=${week}&season=${season}`);
+      
+      // Get alerts with a default userId (we'll improve this later)
+      const alertsData = await get<Alert[]>(`/alerts?userId=default`);
+      
+      if (playersData && playersData.players) {
         setStats(prev => ({
           ...prev,
-          playerCount: playersData.length,
+          playerCount: playersData.players.length,
         }));
       }
       
-      if (projectionsData) {
+      if (projectionsData && Array.isArray(projectionsData)) {
         setStats(prev => ({
           ...prev,
           projectionCount: projectionsData.length,
@@ -51,7 +66,7 @@ export function Home() {
         }));
       }
       
-      if (alertsData) {
+      if (alertsData && Array.isArray(alertsData)) {
         setAlerts(alertsData.slice(0, 5)); // Show only 5 most recent alerts
       }
     };

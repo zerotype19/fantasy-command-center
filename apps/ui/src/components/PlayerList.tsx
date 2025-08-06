@@ -33,16 +33,27 @@ export function PlayerList() {
   const [players, setPlayers] = useState<PlayerWithProjection[]>([]);
   const [projections, setProjections] = useState<Projection[]>([]);
 
+  // Get current NFL week and season
+  const getCurrentWeek = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    // Simple logic - you might want to refine this based on actual NFL schedule
+    return { week: 1, season: year };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
-      const playersData = await get<Player[]>('/players');
-      const projectionsData = await get<Projection[]>('/projections');
+      const { week, season } = getCurrentWeek();
       
-      if (playersData) {
-        setPlayers(playersData);
+      // Get players with proper response structure
+      const playersData = await get<{players: Player[], count: number}>('/players');
+      const projectionsData = await get<Projection[]>(`/projections?week=${week}&season=${season}`);
+      
+      if (playersData && playersData.players) {
+        setPlayers(playersData.players);
       }
       
-      if (projectionsData) {
+      if (projectionsData && Array.isArray(projectionsData)) {
         setProjections(projectionsData);
       }
     };
