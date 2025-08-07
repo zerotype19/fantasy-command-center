@@ -234,8 +234,15 @@ export async function upsertFantasyProsData(db: any, fantasyProsData: any[]): Pr
 
 export async function getPlayersWithFantasyData(db: any, week?: number, season?: number): Promise<any[]> {
   let query = `
-    SELECT p.*, fp.ecr_rank, fp.projected_points, fp.auction_value, fp.sos_rank, 
-           fp.tier, fp.position_rank, fp.value_over_replacement, fp.source
+    SELECT p.*, 
+           MAX(fp.ecr_rank) as ecr_rank, 
+           MAX(fp.projected_points) as projected_points, 
+           MAX(fp.auction_value) as auction_value, 
+           MAX(fp.sos_rank) as sos_rank, 
+           MAX(fp.tier) as tier, 
+           MAX(fp.position_rank) as position_rank, 
+           MAX(fp.value_over_replacement) as value_over_replacement, 
+           MAX(fp.source) as source
     FROM players p
     LEFT JOIN fantasy_pros_data fp ON p.sleeper_id = fp.sleeper_id
   `;
@@ -255,7 +262,7 @@ export async function getPlayersWithFantasyData(db: any, week?: number, season?:
     query += conditions.join(' AND ');
   }
   
-  query += ' ORDER BY p.name';
+  query += ' GROUP BY p.sleeper_id ORDER BY p.name';
   
   const result = await db.prepare(query).bind(...params).all();
   return result.results || [];
