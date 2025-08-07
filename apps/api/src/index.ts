@@ -123,6 +123,14 @@ export default {
           }
           break;
 
+        case '/test/fantasy-pros-key':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestFantasyProsKey(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/sync/espn':
           if (request.method === 'POST') {
             response = await playersHandler.handleSyncESPN(request);
@@ -192,59 +200,93 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log('Running daily Sleeper API sync job...');
+    console.log(`Running scheduled job with cron: ${event.cron}`);
     
-    try {
-      // Initialize services
-      const db = new DatabaseService(env.DB);
+    // Check which cron job this is
+    if (event.cron === "0 6 * * *") {
+      // Daily Sleeper API sync job
+      console.log('Running daily Sleeper API sync job...');
+      
+      try {
+        // Initialize services
+        const db = new DatabaseService(env.DB);
 
-      // 1. Sync all players from Sleeper API
-      console.log('Syncing all players from Sleeper API...');
-      const players = await fetchAllPlayersComplete();
-      
-      const validPlayers = [];
-      let skippedCount = 0;
-      
-      for (const player of players) {
-        const validation = validatePlayer(player);
-        if (validation.isValid) {
-          const transformedPlayer = transformSleeperPlayer(player);
-          validPlayers.push(transformedPlayer);
-        } else {
-          skippedCount++;
-        }
-      }
-      
-      if (validPlayers.length > 0) {
-        await db.upsertSleeperPlayers(validPlayers);
-      }
-      console.log(`Successfully synced ${validPlayers.length} players from Sleeper API (${skippedCount} skipped)`);
-
-      // 2. Sync trending players (both add and drop)
-      console.log('Syncing trending players from Sleeper API...');
-      const trendingTypes = ['add', 'drop'];
-      const lookbackHours = 24;
-      
-      for (const type of trendingTypes) {
-        try {
-          console.log(`Fetching trending ${type} players with ${lookbackHours}h lookback...`);
-          const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
-          
-          if (trendingPlayers && trendingPlayers.length > 0) {
-            await upsertTrendingPlayers(env.DB, trendingPlayers, type, lookbackHours);
-            console.log(`Successfully synced ${trendingPlayers.length} trending ${type} players`);
+        // 1. Sync all players from Sleeper API
+        console.log('Syncing all players from Sleeper API...');
+        const players = await fetchAllPlayersComplete();
+        
+        const validPlayers = [];
+        let skippedCount = 0;
+        
+        for (const player of players) {
+          const validation = validatePlayer(player);
+          if (validation.isValid) {
+            const transformedPlayer = transformSleeperPlayer(player);
+            validPlayers.push(transformedPlayer);
           } else {
-            console.log(`No trending ${type} players found for ${lookbackHours}h lookback`);
+            skippedCount++;
           }
-        } catch (error) {
-          console.error(`Error syncing trending ${type} players:`, error);
-          // Continue with other types even if one fails
         }
-      }
+        
+        if (validPlayers.length > 0) {
+          await db.upsertSleeperPlayers(validPlayers);
+        }
+        console.log(`Successfully synced ${validPlayers.length} players from Sleeper API (${skippedCount} skipped)`);
 
-      console.log('Daily Sleeper API sync job completed successfully');
-    } catch (error) {
-      console.error('Scheduled job error:', error);
+        // 2. Sync trending players (both add and drop)
+        console.log('Syncing trending players from Sleeper API...');
+        const trendingTypes = ['add', 'drop'];
+        const lookbackHours = 24;
+        
+        for (const type of trendingTypes) {
+          try {
+            console.log(`Fetching trending ${type} players with ${lookbackHours}h lookback...`);
+            const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
+            
+            if (trendingPlayers && trendingPlayers.length > 0) {
+              await upsertTrendingPlayers(env.DB, trendingPlayers, type, lookbackHours);
+              console.log(`Successfully synced ${trendingPlayers.length} trending ${type} players`);
+            } else {
+              console.log(`No trending ${type} players found for ${lookbackHours}h lookback`);
+            }
+          } catch (error) {
+            console.error(`Error syncing trending ${type} players:`, error);
+            // Continue with other types even if one fails
+          }
+        }
+
+        console.log('Daily Sleeper API sync job completed successfully');
+      } catch (error) {
+        console.error('Scheduled job error:', error);
+      }
+    } else if (event.cron === "0 * * * *") {
+      // Hourly FantasyPros API sync job
+      console.log('Running hourly FantasyPros API sync job...');
+      
+      try {
+        // Initialize services
+        const db = new DatabaseService(env.DB);
+        const playersHandler = new PlayersHandler(db, env);
+        
+        // Create a mock request for the FantasyPros sync
+        const mockRequest = new Request('https://fantasy-command-center-api.kevin-mcgovern.workers.dev/sync/fantasy-pros', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const response = await playersHandler.handleSyncFantasyPros(mockRequest);
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('Hourly FantasyPros API sync job completed successfully:', result.message);
+        } else {
+          console.error('FantasyPros sync failed:', result.error);
+        }
+      } catch (error) {
+        console.error('FantasyPros scheduled job error:', error);
+      }
+    } else {
+      console.log(`Unknown cron pattern: ${event.cron}`);
     }
   },
 

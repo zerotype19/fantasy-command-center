@@ -13,6 +13,13 @@ import {
   fetchFantasyProsECR,
   fetchFantasyProsAuctionValues,
   fetchFantasyProsSOS,
+  fetchFantasyProsPlayers,
+  fetchFantasyProsNews,
+  fetchFantasyProsInjuries,
+  fetchFantasyProsRankings,
+  fetchFantasyProsConsensusRankings,
+  fetchFantasyProsExperts,
+  fetchFantasyProsPlayerPoints,
   matchFantasyProsToPlayers
 } from '../services/fantasyPros';
 import { upsertFantasyProsData, getPlayersWithFantasyData } from '../utils/db';
@@ -327,12 +334,19 @@ export class PlayersHandler {
       // Get all players for matching
       const allPlayers = await this.db.getAllPlayers();
       
-      // Fetch all FantasyPros data
-      const [projections, ecr, auctionValues, sos] = await Promise.all([
+      // Fetch all FantasyPros data - start with just players to test
+      const [projections, ecr, auctionValues, sos, players, news, injuries, rankings, consensusRankings, experts, playerPoints] = await Promise.all([
         fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY!, week, season),
-        fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY!, week, season),
-        fetchFantasyProsAuctionValues(this.env.FANTASYPROS_API_KEY!, season),
-        fetchFantasyProsSOS(this.env.FANTASYPROS_API_KEY!, season)
+        Promise.resolve([]), // fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY!, week, season),
+        Promise.resolve([]), // fetchFantasyProsAuctionValues(this.env.FANTASYPROS_API_KEY!, season),
+        Promise.resolve([]), // fetchFantasyProsSOS(this.env.FANTASYPROS_API_KEY!, season),
+        fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY!, 'nfl'),
+        Promise.resolve([]), // fetchFantasyProsNews(this.env.FANTASYPROS_API_KEY!, 'nfl', 50),
+        Promise.resolve([]), // fetchFantasyProsInjuries(this.env.FANTASYPROS_API_KEY!, 'nfl'),
+        Promise.resolve([]), // fetchFantasyProsRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
+        Promise.resolve([]), // fetchFantasyProsConsensusRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
+        Promise.resolve([]), // fetchFantasyProsExperts(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
+        Promise.resolve([])  // fetchFantasyProsPlayerPoints(this.env.FANTASYPROS_API_KEY!, season, week)
       ]);
       
       // Match and combine all data
@@ -340,7 +354,13 @@ export class PlayersHandler {
         ...projections.map(p => ({ ...p, data_type: 'projection' })),
         ...ecr.map(e => ({ ...e, data_type: 'ecr' })),
         ...auctionValues.map(a => ({ ...a, data_type: 'auction' })),
-        ...sos.map(s => ({ ...s, data_type: 'sos' }))
+        ...sos.map(s => ({ ...s, data_type: 'sos' })),
+        ...players.map(p => ({ ...p, data_type: 'player' })),
+        ...news.map(n => ({ ...n, data_type: 'news' })),
+        ...injuries.map(i => ({ ...i, data_type: 'injury' })),
+        ...rankings.map(r => ({ ...r, data_type: 'ranking' })),
+        ...consensusRankings.map(cr => ({ ...cr, data_type: 'consensus_ranking' })),
+        ...playerPoints.map(pp => ({ ...pp, data_type: 'player_points' }))
       ];
       
       const { matched, unmatched } = matchFantasyProsToPlayers(allFantasyProsData, allPlayers);
@@ -404,6 +424,34 @@ export class PlayersHandler {
       });
     } catch (error) {
       console.error('Get players with fantasy data error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestFantasyProsKey(request: Request): Promise<Response> {
+    try {
+      const apiKey = this.env.FANTASYPROS_API_KEY;
+      const keyPreview = apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT_FOUND';
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'FantasyPros API key status',
+        data: {
+          key_available: !!apiKey,
+          key_preview: keyPreview,
+          key_length: apiKey ? apiKey.length : 0
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Test FantasyPros key error:', error);
       return new Response(JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

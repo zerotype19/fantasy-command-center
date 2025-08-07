@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// .wrangler/tmp/bundle-J6BAaC/checked-fetch.js
+// .wrangler/tmp/bundle-41kHW4/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -27,7 +27,7 @@ globalThis.fetch = new Proxy(globalThis.fetch, {
   }
 });
 
-// .wrangler/tmp/bundle-J6BAaC/strip-cf-connecting-ip-header.js
+// .wrangler/tmp/bundle-41kHW4/strip-cf-connecting-ip-header.js
 function stripCfConnectingIPHeader(input, init) {
   const request = new Request(input, init);
   request.headers.delete("CF-Connecting-IP");
@@ -741,8 +741,10 @@ function transformSleeperPlayer(player) {
 __name(transformSleeperPlayer, "transformSleeperPlayer");
 
 // src/services/fantasyPros.ts
-var FANTASY_PROS_BASE_URL = "https://api.fantasypros.com";
+var FANTASY_PROS_BASE_URL = "https://api.fantasypros.com/public/v2/json";
 function normalizePlayerName(name) {
+  if (!name)
+    return "";
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 __name(normalizePlayerName, "normalizePlayerName");
@@ -756,111 +758,153 @@ async function rateLimitedRequest(url, apiKey) {
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
   lastRequestTime = Date.now();
+  console.log(`Making FantasyPros API request to: ${url}`);
+  console.log(`API Key (first 8 chars): ${apiKey.substring(0, 8)}...`);
   const response = await fetch(url, {
     headers: {
-      "x-api-key": apiKey,
-      "Content-Type": "application/json"
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+      "User-Agent": "Fantasy-Command-Center/1.0"
     }
   });
+  console.log(`FantasyPros API response status: ${response.status} ${response.statusText}`);
   if (!response.ok) {
-    throw new Error(`FantasyPros API error: ${response.status} ${response.statusText}`);
+    const errorText = await response.text();
+    console.error(`FantasyPros API error response: ${errorText}`);
+    throw new Error(`FantasyPros API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
   return response.json();
 }
 __name(rateLimitedRequest, "rateLimitedRequest");
 async function fetchFantasyProsProjections(apiKey, week, season) {
-  const params = new URLSearchParams();
-  if (week)
-    params.append("week", week.toString());
-  if (season)
-    params.append("season", season.toString());
-  const url = `${FANTASY_PROS_BASE_URL}/v2/players/nfl/projections?${params}`;
-  const data = await rateLimitedRequest(url, apiKey);
-  return data.map((item) => ({
-    player_id: item.player_id,
-    name: item.name,
-    position: item.position,
-    team: item.team,
-    week: item.week,
-    season: item.season,
-    projected_points: item.projected_points,
-    source: "FantasyPros"
-  }));
+  const positions = ["QB", "RB", "WR", "TE", "K", "DST"];
+  let allProjections = [];
+  for (const position of positions) {
+    try {
+      let url = `${FANTASY_PROS_BASE_URL}/nfl/${season || 2024}/projections?position=${position}`;
+      if (week) {
+        url += `&week=${week}`;
+      }
+      console.log(`Making projections request to: ${url}`);
+      const data = await rateLimitedRequest(url, apiKey);
+      const projections = data.players?.map((item) => {
+        const stats = Array.isArray(item.stats) ? item.stats : [];
+        const fpts = stats.find((stat) => stat.label === "FPTS");
+        return {
+          player_id: item.fpid?.toString(),
+          name: item.name,
+          position: item.position_id,
+          team: item.team_id,
+          week: week || 0,
+          season: season || 2024,
+          projected_points: fpts?.value || 0,
+          source: "FantasyPros"
+        };
+      }) || [];
+      allProjections = allProjections.concat(projections);
+      console.log(`Fetched ${projections.length} ${position} projections`);
+    } catch (error) {
+      console.log(`Failed to fetch ${position} projections: ${error}`);
+      continue;
+    }
+  }
+  return allProjections;
 }
 __name(fetchFantasyProsProjections, "fetchFantasyProsProjections");
-async function fetchFantasyProsECR(apiKey, week, season) {
-  const params = new URLSearchParams();
-  if (week)
-    params.append("week", week.toString());
-  if (season)
-    params.append("season", season.toString());
-  const url = `${FANTASY_PROS_BASE_URL}/v2/players/nfl/ecr?${params}`;
+async function fetchFantasyProsPlayers(apiKey, sport = "nfl") {
+  const url = `${FANTASY_PROS_BASE_URL}/${sport}/players?external_ids=espn:yahoo:rotowire:rotoworld:nfl`;
   const data = await rateLimitedRequest(url, apiKey);
-  return data.map((item) => ({
-    player_id: item.player_id,
+  return data.players?.map((item) => ({
+    player_id: item.fpid?.toString(),
     name: item.name,
-    position: item.position,
-    team: item.team,
-    ecr_rank: item.ecr_rank,
-    tier: item.tier,
-    position_rank: item.position_rank,
-    value_over_replacement: item.value_over_replacement
-  }));
+    position: item.position_id,
+    team: item.team_id,
+    filename: item.filename,
+    headshot_url: item.headshot_url,
+    injury_status: item.injury_status,
+    injury_type: item.injury_type,
+    injury_update_date: item.injury_update_date,
+    espn_id: item.espn_id,
+    yahoo_id: item.yahoo_id,
+    rotowire_id: item.rotowire_id,
+    rotoworld_id: item.rotoworld_id,
+    gsis_id: item.nfl_id
+  })) || [];
 }
-__name(fetchFantasyProsECR, "fetchFantasyProsECR");
-async function fetchFantasyProsAuctionValues(apiKey, season) {
-  const params = new URLSearchParams();
-  if (season)
-    params.append("season", season.toString());
-  const url = `${FANTASY_PROS_BASE_URL}/v2/players/nfl/auction-values?${params}`;
-  const data = await rateLimitedRequest(url, apiKey);
-  return data.map((item) => ({
-    player_id: item.player_id,
-    name: item.name,
-    position: item.position,
-    team: item.team,
-    auction_value: item.auction_value,
-    tier: item.tier
-  }));
-}
-__name(fetchFantasyProsAuctionValues, "fetchFantasyProsAuctionValues");
-async function fetchFantasyProsSOS(apiKey, season) {
-  const params = new URLSearchParams();
-  if (season)
-    params.append("season", season.toString());
-  const url = `${FANTASY_PROS_BASE_URL}/v2/players/nfl/schedule-strength?${params}`;
-  const data = await rateLimitedRequest(url, apiKey);
-  return data.map((item) => ({
-    player_id: item.player_id,
-    name: item.name,
-    position: item.position,
-    team: item.team,
-    sos_rank: item.sos_rank
-  }));
-}
-__name(fetchFantasyProsSOS, "fetchFantasyProsSOS");
+__name(fetchFantasyProsPlayers, "fetchFantasyProsPlayers");
 function matchFantasyProsToPlayers(fantasyProsData, players) {
+  const gsisIdMap = /* @__PURE__ */ new Map();
+  const espnIdMap = /* @__PURE__ */ new Map();
+  const yahooIdMap = /* @__PURE__ */ new Map();
+  const rotowireIdMap = /* @__PURE__ */ new Map();
+  const rotoworldIdMap = /* @__PURE__ */ new Map();
   const playerNameMap = /* @__PURE__ */ new Map();
   players.forEach((player) => {
+    if (player.gsis_id) {
+      gsisIdMap.set(player.gsis_id.toString(), player.sleeper_id);
+    }
+    if (player.espn_id) {
+      espnIdMap.set(player.espn_id.toString(), player.sleeper_id);
+    }
+    if (player.yahoo_id) {
+      yahooIdMap.set(player.yahoo_id.toString(), player.sleeper_id);
+    }
+    if (player.rotowire_id) {
+      rotowireIdMap.set(player.rotowire_id.toString(), player.sleeper_id);
+    }
+    if (player.rotoworld_id) {
+      rotoworldIdMap.set(player.rotoworld_id.toString(), player.sleeper_id);
+    }
     if (player.search_full_name) {
       const normalizedName = normalizePlayerName(player.search_full_name);
-      playerNameMap.set(normalizedName, player.sleeper_id);
+      if (normalizedName) {
+        playerNameMap.set(normalizedName, player.sleeper_id);
+      }
     }
   });
+  console.log(`Created ID maps - GSIS: ${gsisIdMap.size}, ESPN: ${espnIdMap.size}, Yahoo: ${yahooIdMap.size}, Rotowire: ${rotowireIdMap.size}, Rotoworld: ${rotoworldIdMap.size}, Names: ${playerNameMap.size}`);
+  console.log(`Processing ${fantasyProsData.length} FantasyPros records`);
   const matched = [];
   const unmatched = [];
-  fantasyProsData.forEach((item) => {
-    const normalizedName = normalizePlayerName(item.name);
-    const sleeperId = playerNameMap.get(normalizedName);
+  fantasyProsData.forEach((item, index) => {
+    let sleeperId = null;
+    let matchMethod = "";
+    if (item.gsis_id && gsisIdMap.has(item.gsis_id.toString())) {
+      sleeperId = gsisIdMap.get(item.gsis_id.toString());
+      matchMethod = "gsis_id";
+    } else if (item.espn_id && espnIdMap.has(item.espn_id.toString())) {
+      sleeperId = espnIdMap.get(item.espn_id.toString());
+      matchMethod = "espn_id";
+    } else if (item.yahoo_id && yahooIdMap.has(item.yahoo_id.toString())) {
+      sleeperId = yahooIdMap.get(item.yahoo_id.toString());
+      matchMethod = "yahoo_id";
+    } else if (item.rotowire_id && rotowireIdMap.has(item.rotowire_id.toString())) {
+      sleeperId = rotowireIdMap.get(item.rotowire_id.toString());
+      matchMethod = "rotowire_id";
+    } else if (item.rotoworld_id && rotoworldIdMap.has(item.rotoworld_id.toString())) {
+      sleeperId = rotoworldIdMap.get(item.rotoworld_id.toString());
+      matchMethod = "rotoworld_id";
+    } else if (item.name) {
+      const normalizedName = normalizePlayerName(item.name);
+      if (normalizedName && playerNameMap.has(normalizedName)) {
+        sleeperId = playerNameMap.get(normalizedName);
+        matchMethod = "name";
+      }
+    }
     if (sleeperId) {
       matched.push({
         ...item,
-        sleeper_id: sleeperId
+        sleeper_id: sleeperId,
+        match_method: matchMethod
       });
     } else {
       unmatched.push(item);
+      if (index < 5) {
+        console.log(`Unmatched: "${item.name}" (GSIS: ${item.gsis_id}, ESPN: ${item.espn_id}, Yahoo: ${item.yahoo_id}, Rotowire: ${item.rotowire_id}, Rotoworld: ${item.rotoworld_id})`);
+      }
     }
   });
+  console.log(`Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
   return { matched, unmatched };
 }
 __name(matchFantasyProsToPlayers, "matchFantasyProsToPlayers");
@@ -1099,17 +1143,39 @@ var PlayersHandler = class {
       const season = url.searchParams.get("season") ? parseInt(url.searchParams.get("season")) : 2024;
       console.log(`Starting FantasyPros sync for week: ${week}, season: ${season}`);
       const allPlayers = await this.db.getAllPlayers();
-      const [projections, ecr, auctionValues, sos] = await Promise.all([
+      const [projections, ecr, auctionValues, sos, players, news, injuries, rankings, consensusRankings, experts, playerPoints] = await Promise.all([
         fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY, week, season),
-        fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY, week, season),
-        fetchFantasyProsAuctionValues(this.env.FANTASYPROS_API_KEY, season),
-        fetchFantasyProsSOS(this.env.FANTASYPROS_API_KEY, season)
+        Promise.resolve([]),
+        // fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY!, week, season),
+        Promise.resolve([]),
+        // fetchFantasyProsAuctionValues(this.env.FANTASYPROS_API_KEY!, season),
+        Promise.resolve([]),
+        // fetchFantasyProsSOS(this.env.FANTASYPROS_API_KEY!, season),
+        fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY, "nfl"),
+        Promise.resolve([]),
+        // fetchFantasyProsNews(this.env.FANTASYPROS_API_KEY!, 'nfl', 50),
+        Promise.resolve([]),
+        // fetchFantasyProsInjuries(this.env.FANTASYPROS_API_KEY!, 'nfl'),
+        Promise.resolve([]),
+        // fetchFantasyProsRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
+        Promise.resolve([]),
+        // fetchFantasyProsConsensusRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
+        Promise.resolve([]),
+        // fetchFantasyProsExperts(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
+        Promise.resolve([])
+        // fetchFantasyProsPlayerPoints(this.env.FANTASYPROS_API_KEY!, season, week)
       ]);
       const allFantasyProsData = [
         ...projections.map((p) => ({ ...p, data_type: "projection" })),
         ...ecr.map((e) => ({ ...e, data_type: "ecr" })),
         ...auctionValues.map((a) => ({ ...a, data_type: "auction" })),
-        ...sos.map((s) => ({ ...s, data_type: "sos" }))
+        ...sos.map((s) => ({ ...s, data_type: "sos" })),
+        ...players.map((p) => ({ ...p, data_type: "player" })),
+        ...news.map((n) => ({ ...n, data_type: "news" })),
+        ...injuries.map((i) => ({ ...i, data_type: "injury" })),
+        ...rankings.map((r) => ({ ...r, data_type: "ranking" })),
+        ...consensusRankings.map((cr) => ({ ...cr, data_type: "consensus_ranking" })),
+        ...playerPoints.map((pp) => ({ ...pp, data_type: "player_points" }))
       ];
       const { matched, unmatched } = matchFantasyProsToPlayers(allFantasyProsData, allPlayers);
       if (matched.length > 0) {
@@ -1168,6 +1234,32 @@ var PlayersHandler = class {
       });
     } catch (error) {
       console.error("Get players with fantasy data error:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
+  async handleTestFantasyProsKey(request) {
+    try {
+      const apiKey = this.env.FANTASYPROS_API_KEY;
+      const keyPreview = apiKey ? `${apiKey.substring(0, 8)}...` : "NOT_FOUND";
+      return new Response(JSON.stringify({
+        success: true,
+        message: "FantasyPros API key status",
+        data: {
+          key_available: !!apiKey,
+          key_preview: keyPreview,
+          key_length: apiKey ? apiKey.length : 0
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Test FantasyPros key error:", error);
       return new Response(JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"
@@ -1448,6 +1540,13 @@ var src_default = {
             response = new Response("Method not allowed", { status: 405 });
           }
           break;
+        case "/test/fantasy-pros-key":
+          if (request.method === "GET") {
+            response = await playersHandler.handleTestFantasyProsKey(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
         case "/sync/espn":
           if (request.method === "POST") {
             response = await playersHandler.handleSyncESPN(request);
@@ -1508,46 +1607,70 @@ var src_default = {
     }
   },
   async scheduled(event, env, ctx) {
-    console.log("Running daily Sleeper API sync job...");
-    try {
-      const db = new DatabaseService(env.DB);
-      console.log("Syncing all players from Sleeper API...");
-      const players = await fetchAllPlayersComplete();
-      const validPlayers = [];
-      let skippedCount = 0;
-      for (const player of players) {
-        const validation = validatePlayer(player);
-        if (validation.isValid) {
-          const transformedPlayer = transformSleeperPlayer(player);
-          validPlayers.push(transformedPlayer);
-        } else {
-          skippedCount++;
-        }
-      }
-      if (validPlayers.length > 0) {
-        await db.upsertSleeperPlayers(validPlayers);
-      }
-      console.log(`Successfully synced ${validPlayers.length} players from Sleeper API (${skippedCount} skipped)`);
-      console.log("Syncing trending players from Sleeper API...");
-      const trendingTypes = ["add", "drop"];
-      const lookbackHours = 24;
-      for (const type of trendingTypes) {
-        try {
-          console.log(`Fetching trending ${type} players with ${lookbackHours}h lookback...`);
-          const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
-          if (trendingPlayers && trendingPlayers.length > 0) {
-            await upsertTrendingPlayers(env.DB, trendingPlayers, type, lookbackHours);
-            console.log(`Successfully synced ${trendingPlayers.length} trending ${type} players`);
+    console.log(`Running scheduled job with cron: ${event.cron}`);
+    if (event.cron === "0 6 * * *") {
+      console.log("Running daily Sleeper API sync job...");
+      try {
+        const db = new DatabaseService(env.DB);
+        console.log("Syncing all players from Sleeper API...");
+        const players = await fetchAllPlayersComplete();
+        const validPlayers = [];
+        let skippedCount = 0;
+        for (const player of players) {
+          const validation = validatePlayer(player);
+          if (validation.isValid) {
+            const transformedPlayer = transformSleeperPlayer(player);
+            validPlayers.push(transformedPlayer);
           } else {
-            console.log(`No trending ${type} players found for ${lookbackHours}h lookback`);
+            skippedCount++;
           }
-        } catch (error) {
-          console.error(`Error syncing trending ${type} players:`, error);
         }
+        if (validPlayers.length > 0) {
+          await db.upsertSleeperPlayers(validPlayers);
+        }
+        console.log(`Successfully synced ${validPlayers.length} players from Sleeper API (${skippedCount} skipped)`);
+        console.log("Syncing trending players from Sleeper API...");
+        const trendingTypes = ["add", "drop"];
+        const lookbackHours = 24;
+        for (const type of trendingTypes) {
+          try {
+            console.log(`Fetching trending ${type} players with ${lookbackHours}h lookback...`);
+            const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
+            if (trendingPlayers && trendingPlayers.length > 0) {
+              await upsertTrendingPlayers(env.DB, trendingPlayers, type, lookbackHours);
+              console.log(`Successfully synced ${trendingPlayers.length} trending ${type} players`);
+            } else {
+              console.log(`No trending ${type} players found for ${lookbackHours}h lookback`);
+            }
+          } catch (error) {
+            console.error(`Error syncing trending ${type} players:`, error);
+          }
+        }
+        console.log("Daily Sleeper API sync job completed successfully");
+      } catch (error) {
+        console.error("Scheduled job error:", error);
       }
-      console.log("Daily Sleeper API sync job completed successfully");
-    } catch (error) {
-      console.error("Scheduled job error:", error);
+    } else if (event.cron === "0 * * * *") {
+      console.log("Running hourly FantasyPros API sync job...");
+      try {
+        const db = new DatabaseService(env.DB);
+        const playersHandler = new PlayersHandler(db, env);
+        const mockRequest = new Request("https://fantasy-command-center-api.kevin-mcgovern.workers.dev/sync/fantasy-pros", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        const response = await playersHandler.handleSyncFantasyPros(mockRequest);
+        const result = await response.json();
+        if (result.success) {
+          console.log("Hourly FantasyPros API sync job completed successfully:", result.message);
+        } else {
+          console.error("FantasyPros sync failed:", result.error);
+        }
+      } catch (error) {
+        console.error("FantasyPros scheduled job error:", error);
+      }
+    } else {
+      console.log(`Unknown cron pattern: ${event.cron}`);
     }
   },
   getCurrentWeek(date) {
@@ -1599,7 +1722,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-J6BAaC/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-41kHW4/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -1631,7 +1754,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-J6BAaC/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-41kHW4/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
