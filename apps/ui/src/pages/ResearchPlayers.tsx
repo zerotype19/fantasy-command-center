@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from '../hooks/useApi';
 
 interface Player {
@@ -17,18 +17,25 @@ interface Player {
 export function ResearchPlayers() {
   const { get, post, loading, error } = useApi();
   const [players, setPlayers] = useState<Player[]>([]);
-  const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [isLoadingPlayers, setIsLoadingPlayers] = useState(false);
 
   const fetchPlayers = useCallback(async () => {
-    const data = await get<Player[]>('/players?limit=100');
-    if (data) {
-      setPlayers(data);
-      setFilteredPlayers(data);
+    setIsLoadingPlayers(true);
+    try {
+      // Load all players by not specifying a limit
+      const data = await get<Player[]>('/players');
+      if (data) {
+        setPlayers(data);
+      }
+    } catch (error) {
+      console.error('Error fetching players:', error);
+    } finally {
+      setIsLoadingPlayers(false);
     }
   }, [get]);
 
@@ -51,7 +58,7 @@ export function ResearchPlayers() {
     fetchPlayers();
   }, [fetchPlayers]);
 
-  useEffect(() => {
+  const filteredPlayers = useMemo(() => {
     let filtered = players;
 
     // Apply search filter
@@ -88,7 +95,7 @@ export function ResearchPlayers() {
       return 0;
     });
 
-    setFilteredPlayers(filtered);
+    return filtered;
   }, [players, searchTerm, positionFilter, sortBy, sortOrder]);
 
   const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
@@ -207,17 +214,25 @@ export function ResearchPlayers() {
       {/* Players Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">
-            Players ({filteredPlayers.length})
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium text-gray-900">
+              Players ({filteredPlayers.length})
+            </h2>
+            <div className="text-sm text-gray-500">
+              {players.length > 0 && (
+                <span>Total: {players.length} players loaded</span>
+              )}
+            </div>
+          </div>
         </div>
         
-        {loading ? (
+        {loading || isLoadingPlayers ? (
           <div className="p-6">
-            <div className="animate-pulse space-y-4">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="h-4 bg-gray-200 rounded w-full"></div>
-              ))}
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">
+                {isLoadingPlayers ? 'Loading all players...' : 'Syncing players...'}
+              </p>
             </div>
           </div>
         ) : (

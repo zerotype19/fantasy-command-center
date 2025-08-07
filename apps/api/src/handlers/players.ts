@@ -20,7 +20,8 @@ export class PlayersHandler {
     try {
       const url = new URL(request.url);
       const position = url.searchParams.get('position');
-      const limit = parseInt(url.searchParams.get('limit') || '25');
+      const limitParam = url.searchParams.get('limit');
+      const limit = limitParam ? parseInt(limitParam) : -1; // -1 means no limit
       const search = url.searchParams.get('search');
 
       // Get players from database
@@ -47,7 +48,7 @@ export class PlayersHandler {
         );
       }
 
-      // Apply limit
+      // Apply limit (only if limit is specified and > 0)
       if (limit > 0) {
         players = players.slice(0, limit);
       }
