@@ -8,21 +8,22 @@ import {
   fetchAllPlayersComplete
 } from '../services/sleeper';
 import { upsertTrendingPlayers, getTrendingPlayers, getTrendingPlayersByLookback } from '../utils/db';
-import {
-  fetchFantasyProsProjections,
-  fetchFantasyProsECR,
-  fetchFantasyProsAuctionValues,
-  fetchFantasyProsSOS,
-  fetchFantasyProsPlayers,
-  fetchFantasyProsNews,
-  fetchFantasyProsInjuries,
-  fetchFantasyProsRankings,
-  fetchFantasyProsConsensusRankings,
-  fetchFantasyProsExperts,
+import { 
+  fetchFantasyProsProjections, 
+  fetchFantasyProsECR, 
+  fetchFantasyProsAuctionValues, 
+  fetchFantasyProsSOS, 
+  fetchFantasyProsPlayers, 
+  fetchFantasyProsNews, 
+  fetchFantasyProsInjuries, 
+  fetchFantasyProsRankings, 
+  fetchFantasyProsConsensusRankings, 
+  fetchFantasyProsExperts, 
   fetchFantasyProsPlayerPoints,
-  matchFantasyProsToPlayers
+  matchFantasyProsToPlayers,
+  matchFantasyProsToPlayerUpdates
 } from '../services/fantasyPros';
-import { upsertFantasyProsData, getPlayersWithFantasyData } from '../utils/db';
+import { upsertFantasyProsData, getPlayersWithFantasyData, updatePlayerFantasyProsData } from '../utils/db';
 
 interface Env {
   DB: any;
@@ -351,7 +352,7 @@ export class PlayersHandler {
       const experts: any[] = [];
       const playerPoints: any[] = [];
       
-      // Match and combine all data
+      // Combine all FantasyPros data
       const allFantasyProsData = [
         ...projections.map(p => ({ ...p, data_type: 'projection' })),
         ...ecr.map(e => ({ ...e, data_type: 'ecr' })),
@@ -365,19 +366,20 @@ export class PlayersHandler {
         ...playerPoints.map(pp => ({ ...pp, data_type: 'player_points' }))
       ];
       
-      const { matched, unmatched } = matchFantasyProsToPlayers(allFantasyProsData, allPlayers);
+      // Match FantasyPros data to players for direct updates
+      const { matched: playerUpdates, unmatched } = matchFantasyProsToPlayerUpdates(allFantasyProsData, allPlayers);
       
-      if (matched.length > 0) {
-        await upsertFantasyProsData(this.db.db, matched);
-        console.log(`Successfully synced ${matched.length} FantasyPros records (${unmatched.length} unmatched)`);
+      if (playerUpdates.length > 0) {
+        await updatePlayerFantasyProsData(this.db.db, playerUpdates);
+        console.log(`Successfully updated ${playerUpdates.length} players with FantasyPros data (${unmatched.length} unmatched)`);
         
         return new Response(JSON.stringify({
           success: true,
-          message: `Synced ${matched.length} FantasyPros records`,
+          message: `Updated ${playerUpdates.length} players with FantasyPros data`,
           data: {
             week,
             season,
-            matched_count: matched.length,
+            updated_count: playerUpdates.length,
             unmatched_count: unmatched.length,
             unmatched_sample: unmatched.slice(0, 10) // Return sample of unmatched for debugging
           }
@@ -388,7 +390,7 @@ export class PlayersHandler {
         return new Response(JSON.stringify({
           success: true,
           message: 'No FantasyPros data matched to players',
-          data: { week, season, matched_count: 0, unmatched_count: allFantasyProsData.length }
+          data: { week, season, updated_count: 0, unmatched_count: allFantasyProsData.length }
         }), {
           headers: { 'Content-Type': 'application/json' }
         });
@@ -441,17 +443,81 @@ export class PlayersHandler {
       const apiKey = this.env.FANTASYPROS_API_KEY;
       const keyPreview = apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT_FOUND';
       
-      return new Response(JSON.stringify({
-        success: true,
-        message: 'FantasyPros API key status',
-        data: {
-          key_available: !!apiKey,
-          key_preview: keyPreview,
-          key_length: apiKey ? apiKey.length : 0
+      // Test a single API call to check rate limiting
+      try {
+        const testUrl = 'https://api.fantasypros.com/public/v2/json/nfl/2024/projections?position=QB&week=0';
+        console.log('Testing single FantasyPros API call...');
+        
+        const response = await fetch(testUrl, {
+          headers: {
+            'X-API-Key': apiKey,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        console.log(`Test API response status: ${response.status} ${response.statusText}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Test API error: ${errorText}`);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'FantasyPros API key status',
+            data: {
+              key_available: !!apiKey,
+              key_preview: keyPreview,
+              key_length: apiKey ? apiKey.length : 0,
+              api_test: {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText
+              }
+            }
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
-      }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+        
+        const data = await response.json();
+        console.log('Test API call successful, got data:', Object.keys(data));
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'FantasyPros API key status',
+          data: {
+            key_available: !!apiKey,
+            key_preview: keyPreview,
+            key_length: apiKey ? apiKey.length : 0,
+            api_test: {
+              status: response.status,
+              statusText: response.statusText,
+              success: true,
+              data_keys: Object.keys(data)
+            }
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+      } catch (apiError) {
+        console.error('Test API call failed:', apiError);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'FantasyPros API key status',
+          data: {
+            key_available: !!apiKey,
+            key_preview: keyPreview,
+            key_length: apiKey ? apiKey.length : 0,
+            api_test: {
+              error: apiError instanceof Error ? apiError.message : 'Unknown API error'
+            }
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     } catch (error) {
       console.error('Test FantasyPros key error:', error);
       return new Response(JSON.stringify({

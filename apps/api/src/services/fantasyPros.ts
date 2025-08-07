@@ -480,3 +480,104 @@ export function matchFantasyProsToPlayers(
   console.log(`Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
   return { matched, unmatched };
 }
+
+// Match FantasyPros data to players and return player updates for direct table updates
+export function matchFantasyProsToPlayerUpdates(
+  fantasyProsData: any[],
+  players: any[]
+): { matched: any[], unmatched: any[] } {
+  // Create maps for all available ID types
+  const gsisIdMap = new Map();
+  const espnIdMap = new Map();
+  const yahooIdMap = new Map();
+  const rotowireIdMap = new Map();
+  const rotoworldIdMap = new Map();
+  const playerNameMap = new Map();
+  
+  // Create maps of IDs to sleeper_id
+  players.forEach(player => {
+    if (player.gsis_id) {
+      gsisIdMap.set(player.gsis_id.toString(), player.sleeper_id);
+    }
+    if (player.espn_id) {
+      espnIdMap.set(player.espn_id.toString(), player.sleeper_id);
+    }
+    if (player.yahoo_id) {
+      yahooIdMap.set(player.yahoo_id.toString(), player.sleeper_id);
+    }
+    if (player.rotowire_id) {
+      rotowireIdMap.set(player.rotowire_id.toString(), player.sleeper_id);
+    }
+    if (player.rotoworld_id) {
+      rotoworldIdMap.set(player.rotoworld_id.toString(), player.sleeper_id);
+    }
+    if (player.search_full_name) {
+      const normalizedName = normalizePlayerName(player.search_full_name);
+      if (normalizedName) {
+        playerNameMap.set(normalizedName, player.sleeper_id);
+      }
+    }
+  });
+  
+  console.log(`Created ID maps for player updates - GSIS: ${gsisIdMap.size}, ESPN: ${espnIdMap.size}, Yahoo: ${yahooIdMap.size}, Rotowire: ${rotowireIdMap.size}, Rotoworld: ${rotoworldIdMap.size}, Names: ${playerNameMap.size}`);
+  console.log(`Processing ${fantasyProsData.length} FantasyPros records for player updates`);
+  
+  const matched = [];
+  const unmatched = [];
+  
+  fantasyProsData.forEach((item, index) => {
+    let sleeperId = null;
+    let matchMethod = '';
+    
+    // Try ID matching first (more reliable) - in order of preference
+    if (item.gsis_id && gsisIdMap.has(item.gsis_id.toString())) {
+      sleeperId = gsisIdMap.get(item.gsis_id.toString());
+      matchMethod = 'gsis_id';
+    } else if (item.espn_id && espnIdMap.has(item.espn_id.toString())) {
+      sleeperId = espnIdMap.get(item.espn_id.toString());
+      matchMethod = 'espn_id';
+    } else if (item.yahoo_id && yahooIdMap.has(item.yahoo_id.toString())) {
+      sleeperId = yahooIdMap.get(item.yahoo_id.toString());
+      matchMethod = 'yahoo_id';
+    } else if (item.rotowire_id && rotowireIdMap.has(item.rotowire_id.toString())) {
+      sleeperId = rotowireIdMap.get(item.rotowire_id.toString());
+      matchMethod = 'rotowire_id';
+    } else if (item.rotoworld_id && rotoworldIdMap.has(item.rotoworld_id.toString())) {
+      sleeperId = rotoworldIdMap.get(item.rotoworld_id.toString());
+      matchMethod = 'rotoworld_id';
+    } else if (item.name) {
+      // Fallback to name matching
+      const normalizedName = normalizePlayerName(item.name);
+      if (normalizedName && playerNameMap.has(normalizedName)) {
+        sleeperId = playerNameMap.get(normalizedName);
+        matchMethod = 'name';
+      }
+    }
+    
+    if (sleeperId) {
+      // Create player update object with FantasyPros data mapped to player fields
+      const playerUpdate = {
+        sleeper_id: sleeperId,
+        search_rank: item.ecr_rank || null,
+        tier: item.tier || null,
+        position_rank: item.position_rank || null,
+        value_over_replacement: item.value_over_replacement || null,
+        auction_value: item.auction_value || null,
+        projected_points: item.projected_points || null,
+        sos_rank: item.sos_rank || null,
+        match_method: matchMethod
+      };
+      
+      matched.push(playerUpdate);
+    } else {
+      unmatched.push(item);
+      // Log first few unmatched items for debugging
+      if (index < 5) {
+        console.log(`Unmatched for player update: "${item.name}" (GSIS: ${item.gsis_id}, ESPN: ${item.espn_id}, Yahoo: ${item.yahoo_id}, Rotowire: ${item.rotowire_id}, Rotoworld: ${item.rotoworld_id})`);
+      }
+    }
+  });
+  
+  console.log(`Player updates - Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
+  return { matched, unmatched };
+}

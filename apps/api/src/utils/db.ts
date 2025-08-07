@@ -232,6 +232,39 @@ export async function upsertFantasyProsData(db: any, fantasyProsData: any[]): Pr
   await db.batch(batch);
 }
 
+export async function updatePlayerFantasyProsData(db: any, playerUpdates: any[]): Promise<void> {
+  if (playerUpdates.length === 0) return;
+
+  const stmt = db.prepare(`
+    UPDATE players SET 
+      search_rank = ?,
+      tier = ?,
+      position_rank = ?,
+      value_over_replacement = ?,
+      auction_value = ?,
+      projected_points = ?,
+      sos_rank = ?,
+      fantasy_pros_updated_at = CURRENT_TIMESTAMP
+    WHERE sleeper_id = ?
+  `);
+
+  const batch = playerUpdates.map(update => 
+    stmt.bind(
+      update.search_rank || null,
+      update.tier || null,
+      update.position_rank || null,
+      update.value_over_replacement || null,
+      update.auction_value || null,
+      update.projected_points || null,
+      update.sos_rank || null,
+      update.sleeper_id
+    )
+  );
+
+  await db.batch(batch);
+  console.log(`Updated ${playerUpdates.length} players with FantasyPros data`);
+}
+
 export async function getPlayersWithFantasyData(db: any, week?: number, season?: number): Promise<any[]> {
   let query = `
     SELECT p.*, 

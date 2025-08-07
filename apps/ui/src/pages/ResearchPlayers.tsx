@@ -94,8 +94,8 @@ export function ResearchPlayers() {
   const fetchPlayers = useCallback(async () => {
     setIsLoadingPlayers(true);
     try {
-      // Load all players with FantasyPros data
-      const response = await get<any>('/players/with-fantasy-data');
+      // Load all players (FantasyPros data is now stored directly in players table)
+      const response = await get<any>('/players');
       console.log('API Response:', response);
       if (response && response.data && response.data.players) {
         console.log('Setting players:', response.data.players.length);

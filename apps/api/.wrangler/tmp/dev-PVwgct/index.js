@@ -204,33 +204,37 @@ async function upsertTrendingPlayers(db, trendingPlayers, type, lookbackHours) {
   await db.batch(batch);
 }
 __name(upsertTrendingPlayers, "upsertTrendingPlayers");
-async function upsertFantasyProsData(db, fantasyProsData) {
-  if (fantasyProsData.length === 0)
+async function updatePlayerFantasyProsData(db, playerUpdates) {
+  if (playerUpdates.length === 0)
     return;
   const stmt = db.prepare(`
-    INSERT OR REPLACE INTO fantasy_pros_data (
-      sleeper_id, source, week, season, ecr_rank, projected_points, 
-      auction_value, sos_rank, tier, position_rank, value_over_replacement
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    UPDATE players SET 
+      search_rank = ?,
+      tier = ?,
+      position_rank = ?,
+      value_over_replacement = ?,
+      auction_value = ?,
+      projected_points = ?,
+      sos_rank = ?,
+      fantasy_pros_updated_at = CURRENT_TIMESTAMP
+    WHERE sleeper_id = ?
   `);
-  const batch = fantasyProsData.map(
-    (item) => stmt.bind(
-      item.sleeper_id,
-      item.source || "FantasyPros",
-      item.week || null,
-      item.season || null,
-      item.ecr_rank || null,
-      item.projected_points || null,
-      item.auction_value || null,
-      item.sos_rank || null,
-      item.tier || null,
-      item.position_rank || null,
-      item.value_over_replacement || null
+  const batch = playerUpdates.map(
+    (update) => stmt.bind(
+      update.search_rank || null,
+      update.tier || null,
+      update.position_rank || null,
+      update.value_over_replacement || null,
+      update.auction_value || null,
+      update.projected_points || null,
+      update.sos_rank || null,
+      update.sleeper_id
     )
   );
   await db.batch(batch);
+  console.log(`Updated ${playerUpdates.length} players with FantasyPros data`);
 }
-__name(upsertFantasyProsData, "upsertFantasyProsData");
+__name(updatePlayerFantasyProsData, "updatePlayerFantasyProsData");
 async function getPlayersWithFantasyData(db, week, season) {
   let query = `
     SELECT p.*, 
@@ -850,7 +854,7 @@ async function fetchFantasyProsPlayers(apiKey, sport = "nfl") {
   })) || [];
 }
 __name(fetchFantasyProsPlayers, "fetchFantasyProsPlayers");
-function matchFantasyProsToPlayers(fantasyProsData, players) {
+function matchFantasyProsToPlayerUpdates(fantasyProsData, players) {
   const gsisIdMap = /* @__PURE__ */ new Map();
   const espnIdMap = /* @__PURE__ */ new Map();
   const yahooIdMap = /* @__PURE__ */ new Map();
@@ -880,8 +884,8 @@ function matchFantasyProsToPlayers(fantasyProsData, players) {
       }
     }
   });
-  console.log(`Created ID maps - GSIS: ${gsisIdMap.size}, ESPN: ${espnIdMap.size}, Yahoo: ${yahooIdMap.size}, Rotowire: ${rotowireIdMap.size}, Rotoworld: ${rotoworldIdMap.size}, Names: ${playerNameMap.size}`);
-  console.log(`Processing ${fantasyProsData.length} FantasyPros records`);
+  console.log(`Created ID maps for player updates - GSIS: ${gsisIdMap.size}, ESPN: ${espnIdMap.size}, Yahoo: ${yahooIdMap.size}, Rotowire: ${rotowireIdMap.size}, Rotoworld: ${rotoworldIdMap.size}, Names: ${playerNameMap.size}`);
+  console.log(`Processing ${fantasyProsData.length} FantasyPros records for player updates`);
   const matched = [];
   const unmatched = [];
   fantasyProsData.forEach((item, index) => {
@@ -910,22 +914,29 @@ function matchFantasyProsToPlayers(fantasyProsData, players) {
       }
     }
     if (sleeperId) {
-      matched.push({
-        ...item,
+      const playerUpdate = {
         sleeper_id: sleeperId,
+        search_rank: item.ecr_rank || null,
+        tier: item.tier || null,
+        position_rank: item.position_rank || null,
+        value_over_replacement: item.value_over_replacement || null,
+        auction_value: item.auction_value || null,
+        projected_points: item.projected_points || null,
+        sos_rank: item.sos_rank || null,
         match_method: matchMethod
-      });
+      };
+      matched.push(playerUpdate);
     } else {
       unmatched.push(item);
       if (index < 5) {
-        console.log(`Unmatched: "${item.name}" (GSIS: ${item.gsis_id}, ESPN: ${item.espn_id}, Yahoo: ${item.yahoo_id}, Rotowire: ${item.rotowire_id}, Rotoworld: ${item.rotoworld_id})`);
+        console.log(`Unmatched for player update: "${item.name}" (GSIS: ${item.gsis_id}, ESPN: ${item.espn_id}, Yahoo: ${item.yahoo_id}, Rotowire: ${item.rotowire_id}, Rotoworld: ${item.rotoworld_id})`);
       }
     }
   });
-  console.log(`Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
+  console.log(`Player updates - Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
   return { matched, unmatched };
 }
-__name(matchFantasyProsToPlayers, "matchFantasyProsToPlayers");
+__name(matchFantasyProsToPlayerUpdates, "matchFantasyProsToPlayerUpdates");
 
 // src/handlers/players.ts
 var PlayersHandler = class {
@@ -1186,17 +1197,17 @@ var PlayersHandler = class {
         ...consensusRankings.map((cr) => ({ ...cr, data_type: "consensus_ranking" })),
         ...playerPoints.map((pp) => ({ ...pp, data_type: "player_points" }))
       ];
-      const { matched, unmatched } = matchFantasyProsToPlayers(allFantasyProsData, allPlayers);
-      if (matched.length > 0) {
-        await upsertFantasyProsData(this.db.db, matched);
-        console.log(`Successfully synced ${matched.length} FantasyPros records (${unmatched.length} unmatched)`);
+      const { matched: playerUpdates, unmatched } = matchFantasyProsToPlayerUpdates(allFantasyProsData, allPlayers);
+      if (playerUpdates.length > 0) {
+        await updatePlayerFantasyProsData(this.db.db, playerUpdates);
+        console.log(`Successfully updated ${playerUpdates.length} players with FantasyPros data (${unmatched.length} unmatched)`);
         return new Response(JSON.stringify({
           success: true,
-          message: `Synced ${matched.length} FantasyPros records`,
+          message: `Updated ${playerUpdates.length} players with FantasyPros data`,
           data: {
             week,
             season,
-            matched_count: matched.length,
+            updated_count: playerUpdates.length,
             unmatched_count: unmatched.length,
             unmatched_sample: unmatched.slice(0, 10)
             // Return sample of unmatched for debugging
@@ -1208,7 +1219,7 @@ var PlayersHandler = class {
         return new Response(JSON.stringify({
           success: true,
           message: "No FantasyPros data matched to players",
-          data: { week, season, matched_count: 0, unmatched_count: allFantasyProsData.length }
+          data: { week, season, updated_count: 0, unmatched_count: allFantasyProsData.length }
         }), {
           headers: { "Content-Type": "application/json" }
         });
@@ -1256,17 +1267,72 @@ var PlayersHandler = class {
     try {
       const apiKey = this.env.FANTASYPROS_API_KEY;
       const keyPreview = apiKey ? `${apiKey.substring(0, 8)}...` : "NOT_FOUND";
-      return new Response(JSON.stringify({
-        success: true,
-        message: "FantasyPros API key status",
-        data: {
-          key_available: !!apiKey,
-          key_preview: keyPreview,
-          key_length: apiKey ? apiKey.length : 0
+      try {
+        const testUrl = "https://api.fantasypros.com/public/v2/json/nfl/2024/projections?position=QB&week=0";
+        console.log("Testing single FantasyPros API call...");
+        const response = await fetch(testUrl, {
+          headers: {
+            "X-API-Key": apiKey,
+            "Content-Type": "application/json"
+          }
+        });
+        console.log(`Test API response status: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Test API error: ${errorText}`);
+          return new Response(JSON.stringify({
+            success: true,
+            message: "FantasyPros API key status",
+            data: {
+              key_available: !!apiKey,
+              key_preview: keyPreview,
+              key_length: apiKey ? apiKey.length : 0,
+              api_test: {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText
+              }
+            }
+          }), {
+            headers: { "Content-Type": "application/json" }
+          });
         }
-      }), {
-        headers: { "Content-Type": "application/json" }
-      });
+        const data = await response.json();
+        console.log("Test API call successful, got data:", Object.keys(data));
+        return new Response(JSON.stringify({
+          success: true,
+          message: "FantasyPros API key status",
+          data: {
+            key_available: !!apiKey,
+            key_preview: keyPreview,
+            key_length: apiKey ? apiKey.length : 0,
+            api_test: {
+              status: response.status,
+              statusText: response.statusText,
+              success: true,
+              data_keys: Object.keys(data)
+            }
+          }
+        }), {
+          headers: { "Content-Type": "application/json" }
+        });
+      } catch (apiError) {
+        console.error("Test API call failed:", apiError);
+        return new Response(JSON.stringify({
+          success: true,
+          message: "FantasyPros API key status",
+          data: {
+            key_available: !!apiKey,
+            key_preview: keyPreview,
+            key_length: apiKey ? apiKey.length : 0,
+            api_test: {
+              error: apiError instanceof Error ? apiError.message : "Unknown API error"
+            }
+          }
+        }), {
+          headers: { "Content-Type": "application/json" }
+        });
+      }
     } catch (error) {
       console.error("Test FantasyPros key error:", error);
       return new Response(JSON.stringify({
