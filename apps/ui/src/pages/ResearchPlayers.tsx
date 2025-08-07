@@ -15,13 +15,12 @@ interface Player {
 }
 
 export function ResearchPlayers() {
-  const { get, post, loading, error } = useApi();
+  const { get, loading, error } = useApi();
   const [players, setPlayers] = useState<Player[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [syncError, setSyncError] = useState<string | null>(null);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(false);
 
   const fetchPlayers = useCallback(async () => {
@@ -39,20 +38,7 @@ export function ResearchPlayers() {
     }
   }, [get]);
 
-  const syncSleeperPlayers = useCallback(async () => {
-    setSyncError(null);
-    try {
-      const result = await post('/sync/players', {});
-      if (result) {
-        alert('Sleeper players synced successfully!');
-        fetchPlayers();
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to sync players';
-      setSyncError(errorMessage);
-      console.error('Sync error:', err);
-    }
-  }, [post, fetchPlayers]);
+
 
   useEffect(() => {
     fetchPlayers();
@@ -104,40 +90,15 @@ export function ResearchPlayers() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Research Players</h1>
-            <p className="text-gray-600 mt-1">
-              Explore all players from Sleeper API (sleeper.com)
-            </p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={syncSleeperPlayers}
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              {loading ? 'Syncing...' : 'Sync Sleeper Players'}
-            </button>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Research Players</h1>
+          <p className="text-gray-600 mt-1">
+            Explore all players from the database (updated daily via Sleeper API)
+          </p>
         </div>
       </div>
 
-      {/* Sync Error Display */}
-      {syncError && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <h3 className="text-sm font-medium text-red-800 mb-2">Sync Error</h3>
-          <p className="text-sm text-red-600 mb-3">{syncError}</p>
-          <div className="text-sm text-red-700">
-            <p className="font-medium mb-1">To fix this issue:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Check your internet connection</li>
-              <li>The Sleeper API may be temporarily unavailable</li>
-              <li>Try again in a few minutes</li>
-            </ul>
-          </div>
-        </div>
-      )}
+
 
       {/* Filters */}
       <div className="bg-white shadow rounded-lg p-6">
