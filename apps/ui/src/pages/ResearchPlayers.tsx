@@ -96,8 +96,12 @@ export function ResearchPlayers() {
     try {
       // Load all players with FantasyPros data
       const response = await get<any>('/players/with-fantasy-data');
-      if (response && response.players) {
-        setPlayers(response.players);
+      console.log('API Response:', response);
+      if (response && response.data && response.data.players) {
+        console.log('Setting players:', response.data.players.length);
+        setPlayers(response.data.players);
+      } else {
+        console.log('No players found in response');
       }
     } catch (error) {
       console.error('Error fetching players:', error);
