@@ -407,7 +407,7 @@ export class PlayersHandler {
     try {
       const url = new URL(request.url);
       const week = url.searchParams.get('week') ? parseInt(url.searchParams.get('week')!) : undefined;
-      const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : 2024;
+      const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : undefined;
       
       const players = await getPlayersWithFantasyData(this.db.db, week, season);
       
