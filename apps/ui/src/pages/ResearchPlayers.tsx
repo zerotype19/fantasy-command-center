@@ -12,6 +12,61 @@ interface Player {
   projected_points_week: number | null;
   projected_points_season: number | null;
   projection_source: string;
+  // Additional fields from database
+  age: number | null;
+  years_exp: number | null;
+  college: string | null;
+  weight: string | null;
+  height: string | null;
+  jersey_number: number | null;
+  fantasy_positions: string | null;
+  fantasy_data_id: number | null;
+  search_rank: number | null;
+  injury_status: string | null;
+  injury_start_date: string | null;
+  injury_notes: string | null;
+  practice_participation: string | null;
+  depth_chart_position: string | null;
+  depth_chart_order: number | null;
+  yahoo_id: number | null;
+  rotowire_id: number | null;
+  rotoworld_id: number | null;
+  sportradar_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  birth_date: string | null;
+  birth_city: string | null;
+  birth_state: string | null;
+  birth_country: string | null;
+  high_school: string | null;
+  hashtag: string | null;
+  team_abbr: string | null;
+  team_changed_at: string | null;
+  gsis_id: string | null;
+  swish_id: number | null;
+  stats_id: number | null;
+  oddsjam_id: string | null;
+  opta_id: string | null;
+  pandascore_id: string | null;
+  sport: string | null;
+  news_updated: number | null;
+  practice_description: string | null;
+  injury_body_part: string | null;
+  search_first_name: string | null;
+  search_last_name: string | null;
+  search_full_name: string | null;
+  metadata: string | null;
+  competitions: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TrendingPlayer {
+  player_id: string;
+  count: number;
+  type: string;
+  lookback_hours: number;
+  created_at: string;
 }
 
 export function ResearchPlayers() {
@@ -22,6 +77,10 @@ export function ResearchPlayers() {
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [trendingData, setTrendingData] = useState<TrendingPlayer[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
 
   const fetchPlayers = useCallback(async () => {
     setIsLoadingPlayers(true);
@@ -38,7 +97,40 @@ export function ResearchPlayers() {
     }
   }, [get]);
 
+  const fetchTrendingData = useCallback(async (playerId: string) => {
+    setIsLoadingTrending(true);
+    try {
+      // Fetch trending data for both add and drop types
+      const [addData, dropData] = await Promise.all([
+        get<TrendingPlayer[]>(`/trending/players?type=add&limit=50`),
+        get<TrendingPlayer[]>(`/trending/players?type=drop&limit=50`)
+      ]);
+      
+      const allTrending = [
+        ...(addData || []).filter(t => t.player_id === playerId),
+        ...(dropData || []).filter(t => t.player_id === playerId)
+      ];
+      
+      setTrendingData(allTrending);
+    } catch (error) {
+      console.error('Error fetching trending data:', error);
+      setTrendingData([]);
+    } finally {
+      setIsLoadingTrending(false);
+    }
+  }, [get]);
 
+  const openPlayerModal = useCallback(async (player: Player) => {
+    setSelectedPlayer(player);
+    setIsModalOpen(true);
+    await fetchTrendingData(player.sleeper_id);
+  }, [fetchTrendingData]);
+
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedPlayer(null);
+    setTrendingData([]);
+  }, []);
 
   useEffect(() => {
     fetchPlayers();
@@ -211,6 +303,12 @@ export function ResearchPlayers() {
                     Team
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Age/Exp
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    College
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -223,7 +321,11 @@ export function ResearchPlayers() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredPlayers.map((player) => (
-                  <tr key={player.id} className="hover:bg-gray-50">
+                  <tr 
+                    key={player.id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => openPlayerModal(player)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {player.name}
@@ -236,6 +338,19 @@ export function ResearchPlayers() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.team}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {player.age && player.years_exp 
+                        ? `${player.age}/${player.years_exp}`
+                        : player.age 
+                        ? `${player.age}`
+                        : player.years_exp 
+                        ? `Exp: ${player.years_exp}`
+                        : '-'
+                      }
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {player.college || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.status || 'Active'}
@@ -253,6 +368,196 @@ export function ResearchPlayers() {
           </div>
         )}
       </div>
+
+      {/* Player Details Modal */}
+      {isModalOpen && selectedPlayer && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {selectedPlayer.name} - {selectedPlayer.position} - {selectedPlayer.team}
+                </h3>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div>
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">Basic Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Name:</span>
+                      <span>{selectedPlayer.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Position:</span>
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {selectedPlayer.position}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Team:</span>
+                      <span>{selectedPlayer.team}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Status:</span>
+                      <span>{selectedPlayer.status || 'Active'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Bye Week:</span>
+                      <span>{selectedPlayer.bye_week || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Age:</span>
+                      <span>{selectedPlayer.age || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Years Experience:</span>
+                      <span>{selectedPlayer.years_exp || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">College:</span>
+                      <span>{selectedPlayer.college || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Height:</span>
+                      <span>{selectedPlayer.height || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Weight:</span>
+                      <span>{selectedPlayer.weight || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Jersey Number:</span>
+                      <span>{selectedPlayer.jersey_number || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fantasy Information */}
+                <div>
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">Fantasy Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Fantasy Positions:</span>
+                      <span>{selectedPlayer.fantasy_positions || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Search Rank:</span>
+                      <span>{selectedPlayer.search_rank || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Depth Chart Position:</span>
+                      <span>{selectedPlayer.depth_chart_position || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Depth Chart Order:</span>
+                      <span>{selectedPlayer.depth_chart_order || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Projection Source:</span>
+                      <span>{selectedPlayer.projection_source === 'none' ? 'No projections' : selectedPlayer.projection_source}</span>
+                    </div>
+                  </div>
+
+                  {/* Injury Information */}
+                  <h4 className="text-md font-semibold text-gray-900 mb-3 mt-4">Injury Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Injury Status:</span>
+                      <span>{selectedPlayer.injury_status || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Injury Start Date:</span>
+                      <span>{selectedPlayer.injury_start_date || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Injury Notes:</span>
+                      <span>{selectedPlayer.injury_notes || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Practice Participation:</span>
+                      <span>{selectedPlayer.practice_participation || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Injury Body Part:</span>
+                      <span>{selectedPlayer.injury_body_part || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trending Data */}
+              <div className="mt-6">
+                <h4 className="text-md font-semibold text-gray-900 mb-3">Trending Data</h4>
+                {isLoadingTrending ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="text-sm text-gray-600 mt-2">Loading trending data...</p>
+                  </div>
+                ) : trendingData.length > 0 ? (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {trendingData.map((trend, index) => (
+                        <div key={index} className="bg-white p-3 rounded border">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm">
+                              {trend.type === 'add' ? '📈 Trending Up' : '📉 Trending Down'}
+                            </span>
+                            <span className="text-lg font-bold text-blue-600">
+                              {trend.count.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {trend.lookback_hours}h lookback • {new Date(trend.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    No trending data available for this player
+                  </div>
+                )}
+              </div>
+
+              {/* External IDs */}
+              <div className="mt-6">
+                <h4 className="text-md font-semibold text-gray-900 mb-3">External IDs</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Sleeper ID:</span>
+                    <span className="font-mono">{selectedPlayer.sleeper_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">ESPN ID:</span>
+                    <span className="font-mono">{selectedPlayer.espn_id || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Yahoo ID:</span>
+                    <span className="font-mono">{selectedPlayer.yahoo_id || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Rotowire ID:</span>
+                    <span className="font-mono">{selectedPlayer.rotowire_id || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
