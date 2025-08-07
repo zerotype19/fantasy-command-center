@@ -15,5 +15,4 @@ crons = ["0 6 * * *"] # daily at 6 AM UTC for Sleeper API sync
 
 [vars]
 NOAA_BASE_URL = "https://api.weather.gov"
-ESPN_BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
-FANTASY_PROS = "" # Add your FantasyPros API key here 
+ESPN_BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl" 

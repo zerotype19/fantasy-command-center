@@ -21,7 +21,7 @@ interface Env {
   DB: any;
   NOAA_BASE_URL: string;
   ESPN_BASE_URL: string;
-  FANTASY_PROS: string;
+  FANTASYPROS_API_KEY: string;
 }
 
 export class PlayersHandler {
@@ -329,10 +329,10 @@ export class PlayersHandler {
       
       // Fetch all FantasyPros data
       const [projections, ecr, auctionValues, sos] = await Promise.all([
-        fetchFantasyProsProjections(this.env.FANTASY_PROS!, week, season),
-        fetchFantasyProsECR(this.env.FANTASY_PROS!, week, season),
-        fetchFantasyProsAuctionValues(this.env.FANTASY_PROS!, season),
-        fetchFantasyProsSOS(this.env.FANTASY_PROS!, season)
+        fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY!, week, season),
+        fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY!, week, season),
+        fetchFantasyProsAuctionValues(this.env.FANTASYPROS_API_KEY!, season),
+        fetchFantasyProsSOS(this.env.FANTASYPROS_API_KEY!, season)
       ]);
       
       // Match and combine all data
