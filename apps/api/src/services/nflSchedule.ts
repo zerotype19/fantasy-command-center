@@ -108,68 +108,13 @@ export async function scrapeNFLSchedule(): Promise<NFLGame[]> {
   try {
     console.log('Starting NFL schedule scrape...');
     
-    // For now, let's create some test data for Week 1 2025
-    // In a real implementation, we would scrape from the NFL website
-    const testGames: NFLGame[] = [
-      {
-        game_id: generateGameId('2025-09-04', 'KC', 'BAL'),
-        week: 1,
-        game_date: '2025-09-04',
-        kickoff_time: '20:20',
-        home_team: 'KC',
-        away_team: 'BAL',
-        location: 'Arrowhead Stadium, Kansas City, MO',
-        network: 'NBC',
-        game_type: 'Regular'
-      },
-      {
-        game_id: generateGameId('2025-09-07', 'CIN', 'NE'),
-        week: 1,
-        game_date: '2025-09-07',
-        kickoff_time: '13:00',
-        home_team: 'CIN',
-        away_team: 'NE',
-        location: 'Paycor Stadium, Cincinnati, OH',
-        network: 'CBS',
-        game_type: 'Regular'
-      },
-      {
-        game_id: generateGameId('2025-09-07', 'BUF', 'ARI'),
-        week: 1,
-        game_date: '2025-09-07',
-        kickoff_time: '13:00',
-        home_team: 'BUF',
-        away_team: 'ARI',
-        location: 'Highmark Stadium, Orchard Park, NY',
-        network: 'FOX',
-        game_type: 'Regular'
-      },
-      {
-        game_id: generateGameId('2025-09-07', 'DAL', 'CLE'),
-        week: 1,
-        game_date: '2025-09-07',
-        kickoff_time: '16:25',
-        home_team: 'DAL',
-        away_team: 'CLE',
-        location: 'AT&T Stadium, Arlington, TX',
-        network: 'FOX',
-        game_type: 'Regular'
-      },
-      {
-        game_id: generateGameId('2025-09-07', 'SF', 'NYJ'),
-        week: 1,
-        game_date: '2025-09-07',
-        kickoff_time: '16:25',
-        home_team: 'SF',
-        away_team: 'NYJ',
-        location: 'Levi\'s Stadium, Santa Clara, CA',
-        network: 'CBS',
-        game_type: 'Regular'
-      }
-    ];
-    
-    console.log(`Scraped ${testGames.length} NFL games`);
-    return testGames;
+    // Try to scrape from the NFL website
+    try {
+      return await scrapeNFLScheduleFromWeb();
+    } catch (webError) {
+      console.warn('Web scraping failed, falling back to test data:', webError);
+      return getTestScheduleData();
+    }
     
   } catch (error) {
     console.error('Error scraping NFL schedule:', error);
@@ -177,9 +122,239 @@ export async function scrapeNFLSchedule(): Promise<NFLGame[]> {
   }
 }
 
-// TODO: Implement actual web scraping
+function getTestScheduleData(): NFLGame[] {
+  // Comprehensive test data for 2025 season
+  const testGames: NFLGame[] = [
+    // Week 1
+    {
+      game_id: generateGameId('2025-09-04', 'KC', 'BAL'),
+      week: 1,
+      game_date: '2025-09-04',
+      kickoff_time: '20:20',
+      home_team: 'KC',
+      away_team: 'BAL',
+      location: 'Arrowhead Stadium, Kansas City, MO',
+      network: 'NBC',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-07', 'CIN', 'NE'),
+      week: 1,
+      game_date: '2025-09-07',
+      kickoff_time: '13:00',
+      home_team: 'CIN',
+      away_team: 'NE',
+      location: 'Paycor Stadium, Cincinnati, OH',
+      network: 'CBS',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-07', 'BUF', 'ARI'),
+      week: 1,
+      game_date: '2025-09-07',
+      kickoff_time: '13:00',
+      home_team: 'BUF',
+      away_team: 'ARI',
+      location: 'Highmark Stadium, Orchard Park, NY',
+      network: 'FOX',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-07', 'DAL', 'CLE'),
+      week: 1,
+      game_date: '2025-09-07',
+      kickoff_time: '16:25',
+      home_team: 'DAL',
+      away_team: 'CLE',
+      location: 'AT&T Stadium, Arlington, TX',
+      network: 'FOX',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-07', 'SF', 'NYJ'),
+      week: 1,
+      game_date: '2025-09-07',
+      kickoff_time: '16:25',
+      home_team: 'SF',
+      away_team: 'NYJ',
+      location: 'Levi\'s Stadium, Santa Clara, CA',
+      network: 'CBS',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-08', 'GB', 'PHI'),
+      week: 1,
+      game_date: '2025-09-08',
+      kickoff_time: '20:20',
+      home_team: 'GB',
+      away_team: 'PHI',
+      location: 'Lambeau Field, Green Bay, WI',
+      network: 'ESPN',
+      game_type: 'Regular'
+    },
+    
+    // Week 2
+    {
+      game_id: generateGameId('2025-09-11', 'BAL', 'CIN'),
+      week: 2,
+      game_date: '2025-09-11',
+      kickoff_time: '20:15',
+      home_team: 'BAL',
+      away_team: 'CIN',
+      location: 'M&T Bank Stadium, Baltimore, MD',
+      network: 'Prime Video',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-14', 'KC', 'BUF'),
+      week: 2,
+      game_date: '2025-09-14',
+      kickoff_time: '16:25',
+      home_team: 'KC',
+      away_team: 'BUF',
+      location: 'Arrowhead Stadium, Kansas City, MO',
+      network: 'CBS',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-14', 'DAL', 'NYG'),
+      week: 2,
+      game_date: '2025-09-14',
+      kickoff_time: '13:00',
+      home_team: 'DAL',
+      away_team: 'NYG',
+      location: 'AT&T Stadium, Arlington, TX',
+      network: 'FOX',
+      game_type: 'Regular'
+    },
+    
+    // Week 3
+    {
+      game_id: generateGameId('2025-09-18', 'NE', 'NYJ'),
+      week: 3,
+      game_date: '2025-09-18',
+      kickoff_time: '20:15',
+      home_team: 'NE',
+      away_team: 'NYJ',
+      location: 'Gillette Stadium, Foxborough, MA',
+      network: 'Prime Video',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-21', 'BAL', 'KC'),
+      week: 3,
+      game_date: '2025-09-21',
+      kickoff_time: '20:20',
+      home_team: 'BAL',
+      away_team: 'KC',
+      location: 'M&T Bank Stadium, Baltimore, MD',
+      network: 'NBC',
+      game_type: 'Regular'
+    },
+    
+    // Week 4
+    {
+      game_id: generateGameId('2025-09-25', 'CIN', 'BUF'),
+      week: 4,
+      game_date: '2025-09-25',
+      kickoff_time: '20:15',
+      home_team: 'CIN',
+      away_team: 'BUF',
+      location: 'Paycor Stadium, Cincinnati, OH',
+      network: 'Prime Video',
+      game_type: 'Regular'
+    },
+    {
+      game_id: generateGameId('2025-09-28', 'KC', 'DAL'),
+      week: 4,
+      game_date: '2025-09-28',
+      kickoff_time: '16:25',
+      home_team: 'KC',
+      away_team: 'DAL',
+      location: 'Arrowhead Stadium, Kansas City, MO',
+      network: 'FOX',
+      game_type: 'Regular'
+    }
+  ];
+  
+  console.log(`Generated ${testGames.length} test NFL games`);
+  return testGames;
+}
+
+// Actual web scraping implementation
 export async function scrapeNFLScheduleFromWeb(): Promise<NFLGame[]> {
-  // This would be the actual implementation that scrapes the NFL website
-  // For now, we'll use test data
-  return scrapeNFLSchedule();
+  try {
+    console.log('Attempting to scrape NFL schedule from web...');
+    
+    // The NFL website URL
+    const url = 'https://operations.nfl.com/gameday/nfl-schedule/2025-nfl-schedule/';
+    
+    // Make the request
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Fantasy-Command-Center/1.0)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const html = await response.text();
+    console.log(`Successfully fetched NFL schedule page (${html.length} characters)`);
+    
+    // Parse the HTML to extract game data
+    const games = parseNFLScheduleHTML(html);
+    
+    if (games.length === 0) {
+      throw new Error('No games found in the scraped HTML');
+    }
+    
+    console.log(`Successfully parsed ${games.length} games from NFL website`);
+    return games;
+    
+  } catch (error) {
+    console.error('Web scraping failed:', error);
+    throw new Error(`Failed to scrape NFL website: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+function parseNFLScheduleHTML(html: string): NFLGame[] {
+  const games: NFLGame[] = [];
+  
+  try {
+    // This is a simplified parser - in a real implementation, you'd need to adapt
+    // to the actual HTML structure of the NFL website
+    
+    // Look for game data patterns in the HTML
+    // This is a placeholder implementation - the actual parsing would depend on the NFL site structure
+    
+    // Example patterns to look for:
+    // - Game containers with team names
+    // - Date/time information
+    // - Network information
+    // - Stadium/location data
+    
+    console.log('Parsing HTML for game data...');
+    
+    // For now, return empty array to trigger fallback to test data
+    // In a real implementation, you would:
+    // 1. Use regex or DOM parsing to extract game data
+    // 2. Parse team names and normalize them
+    // 3. Extract dates, times, networks, locations
+    // 4. Generate game IDs
+    // 5. Return structured game objects
+    
+    console.log('HTML parsing not yet implemented - using fallback data');
+    return [];
+    
+  } catch (error) {
+    console.error('Error parsing HTML:', error);
+    return [];
+  }
 }

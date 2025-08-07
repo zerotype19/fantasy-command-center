@@ -4,6 +4,7 @@ import { Home } from './pages/Home';
 import { League } from './pages/League';
 import { ResearchPlayers } from './pages/ResearchPlayers';
 import { LoadMyTeam } from './pages/LoadMyTeam';
+import { NFLSchedule } from './pages/NFLSchedule';
 import { Layout } from './components/Layout';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/research" replace />} />
             <Route path="/research" element={<ResearchPlayers />} />
+            <Route path="/schedule" element={<NFLSchedule />} />
             <Route path="/team" element={<LoadMyTeam />} />
             <Route path="/settings" element={<League />} />
             <Route path="/home" element={<Home />} />

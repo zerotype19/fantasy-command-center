@@ -984,71 +984,215 @@ __name(generateGameId, "generateGameId");
 async function scrapeNFLSchedule() {
   try {
     console.log("Starting NFL schedule scrape...");
-    const testGames = [
-      {
-        game_id: generateGameId("2025-09-04", "KC", "BAL"),
-        week: 1,
-        game_date: "2025-09-04",
-        kickoff_time: "20:20",
-        home_team: "KC",
-        away_team: "BAL",
-        location: "Arrowhead Stadium, Kansas City, MO",
-        network: "NBC",
-        game_type: "Regular"
-      },
-      {
-        game_id: generateGameId("2025-09-07", "CIN", "NE"),
-        week: 1,
-        game_date: "2025-09-07",
-        kickoff_time: "13:00",
-        home_team: "CIN",
-        away_team: "NE",
-        location: "Paycor Stadium, Cincinnati, OH",
-        network: "CBS",
-        game_type: "Regular"
-      },
-      {
-        game_id: generateGameId("2025-09-07", "BUF", "ARI"),
-        week: 1,
-        game_date: "2025-09-07",
-        kickoff_time: "13:00",
-        home_team: "BUF",
-        away_team: "ARI",
-        location: "Highmark Stadium, Orchard Park, NY",
-        network: "FOX",
-        game_type: "Regular"
-      },
-      {
-        game_id: generateGameId("2025-09-07", "DAL", "CLE"),
-        week: 1,
-        game_date: "2025-09-07",
-        kickoff_time: "16:25",
-        home_team: "DAL",
-        away_team: "CLE",
-        location: "AT&T Stadium, Arlington, TX",
-        network: "FOX",
-        game_type: "Regular"
-      },
-      {
-        game_id: generateGameId("2025-09-07", "SF", "NYJ"),
-        week: 1,
-        game_date: "2025-09-07",
-        kickoff_time: "16:25",
-        home_team: "SF",
-        away_team: "NYJ",
-        location: "Levi's Stadium, Santa Clara, CA",
-        network: "CBS",
-        game_type: "Regular"
-      }
-    ];
-    console.log(`Scraped ${testGames.length} NFL games`);
-    return testGames;
+    try {
+      return await scrapeNFLScheduleFromWeb();
+    } catch (webError) {
+      console.warn("Web scraping failed, falling back to test data:", webError);
+      return getTestScheduleData();
+    }
   } catch (error) {
     console.error("Error scraping NFL schedule:", error);
     throw new Error(`Failed to scrape NFL schedule: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 __name(scrapeNFLSchedule, "scrapeNFLSchedule");
+function getTestScheduleData() {
+  const testGames = [
+    // Week 1
+    {
+      game_id: generateGameId("2025-09-04", "KC", "BAL"),
+      week: 1,
+      game_date: "2025-09-04",
+      kickoff_time: "20:20",
+      home_team: "KC",
+      away_team: "BAL",
+      location: "Arrowhead Stadium, Kansas City, MO",
+      network: "NBC",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-07", "CIN", "NE"),
+      week: 1,
+      game_date: "2025-09-07",
+      kickoff_time: "13:00",
+      home_team: "CIN",
+      away_team: "NE",
+      location: "Paycor Stadium, Cincinnati, OH",
+      network: "CBS",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-07", "BUF", "ARI"),
+      week: 1,
+      game_date: "2025-09-07",
+      kickoff_time: "13:00",
+      home_team: "BUF",
+      away_team: "ARI",
+      location: "Highmark Stadium, Orchard Park, NY",
+      network: "FOX",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-07", "DAL", "CLE"),
+      week: 1,
+      game_date: "2025-09-07",
+      kickoff_time: "16:25",
+      home_team: "DAL",
+      away_team: "CLE",
+      location: "AT&T Stadium, Arlington, TX",
+      network: "FOX",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-07", "SF", "NYJ"),
+      week: 1,
+      game_date: "2025-09-07",
+      kickoff_time: "16:25",
+      home_team: "SF",
+      away_team: "NYJ",
+      location: "Levi's Stadium, Santa Clara, CA",
+      network: "CBS",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-08", "GB", "PHI"),
+      week: 1,
+      game_date: "2025-09-08",
+      kickoff_time: "20:20",
+      home_team: "GB",
+      away_team: "PHI",
+      location: "Lambeau Field, Green Bay, WI",
+      network: "ESPN",
+      game_type: "Regular"
+    },
+    // Week 2
+    {
+      game_id: generateGameId("2025-09-11", "BAL", "CIN"),
+      week: 2,
+      game_date: "2025-09-11",
+      kickoff_time: "20:15",
+      home_team: "BAL",
+      away_team: "CIN",
+      location: "M&T Bank Stadium, Baltimore, MD",
+      network: "Prime Video",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-14", "KC", "BUF"),
+      week: 2,
+      game_date: "2025-09-14",
+      kickoff_time: "16:25",
+      home_team: "KC",
+      away_team: "BUF",
+      location: "Arrowhead Stadium, Kansas City, MO",
+      network: "CBS",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-14", "DAL", "NYG"),
+      week: 2,
+      game_date: "2025-09-14",
+      kickoff_time: "13:00",
+      home_team: "DAL",
+      away_team: "NYG",
+      location: "AT&T Stadium, Arlington, TX",
+      network: "FOX",
+      game_type: "Regular"
+    },
+    // Week 3
+    {
+      game_id: generateGameId("2025-09-18", "NE", "NYJ"),
+      week: 3,
+      game_date: "2025-09-18",
+      kickoff_time: "20:15",
+      home_team: "NE",
+      away_team: "NYJ",
+      location: "Gillette Stadium, Foxborough, MA",
+      network: "Prime Video",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-21", "BAL", "KC"),
+      week: 3,
+      game_date: "2025-09-21",
+      kickoff_time: "20:20",
+      home_team: "BAL",
+      away_team: "KC",
+      location: "M&T Bank Stadium, Baltimore, MD",
+      network: "NBC",
+      game_type: "Regular"
+    },
+    // Week 4
+    {
+      game_id: generateGameId("2025-09-25", "CIN", "BUF"),
+      week: 4,
+      game_date: "2025-09-25",
+      kickoff_time: "20:15",
+      home_team: "CIN",
+      away_team: "BUF",
+      location: "Paycor Stadium, Cincinnati, OH",
+      network: "Prime Video",
+      game_type: "Regular"
+    },
+    {
+      game_id: generateGameId("2025-09-28", "KC", "DAL"),
+      week: 4,
+      game_date: "2025-09-28",
+      kickoff_time: "16:25",
+      home_team: "KC",
+      away_team: "DAL",
+      location: "Arrowhead Stadium, Kansas City, MO",
+      network: "FOX",
+      game_type: "Regular"
+    }
+  ];
+  console.log(`Generated ${testGames.length} test NFL games`);
+  return testGames;
+}
+__name(getTestScheduleData, "getTestScheduleData");
+async function scrapeNFLScheduleFromWeb() {
+  try {
+    console.log("Attempting to scrape NFL schedule from web...");
+    const url = "https://operations.nfl.com/gameday/nfl-schedule/2025-nfl-schedule/";
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; Fantasy-Command-Center/1.0)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const html = await response.text();
+    console.log(`Successfully fetched NFL schedule page (${html.length} characters)`);
+    const games = parseNFLScheduleHTML(html);
+    if (games.length === 0) {
+      throw new Error("No games found in the scraped HTML");
+    }
+    console.log(`Successfully parsed ${games.length} games from NFL website`);
+    return games;
+  } catch (error) {
+    console.error("Web scraping failed:", error);
+    throw new Error(`Failed to scrape NFL website: ${error instanceof Error ? error.message : "Unknown error"}`);
+  }
+}
+__name(scrapeNFLScheduleFromWeb, "scrapeNFLScheduleFromWeb");
+function parseNFLScheduleHTML(html) {
+  const games = [];
+  try {
+    console.log("Parsing HTML for game data...");
+    console.log("HTML parsing not yet implemented - using fallback data");
+    return [];
+  } catch (error) {
+    console.error("Error parsing HTML:", error);
+    return [];
+  }
+}
+__name(parseNFLScheduleHTML, "parseNFLScheduleHTML");
 
 // src/handlers/players.ts
 var PlayersHandler = class {
@@ -1915,6 +2059,23 @@ var src_default = {
           } catch (error) {
             console.error(`Error syncing trending ${type} players:`, error);
           }
+        }
+        console.log("Syncing NFL schedule...");
+        try {
+          const playersHandler = new PlayersHandler(db, env);
+          const mockRequest = new Request("https://fantasy-command-center-api.kevin-mcgovern.workers.dev/sync/nfl-schedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+          });
+          const response = await playersHandler.handleSyncNFLSchedule(mockRequest);
+          const result = await response.json();
+          if (result.success) {
+            console.log("NFL schedule sync completed successfully:", result.message);
+          } else {
+            console.error("NFL schedule sync failed:", result.error);
+          }
+        } catch (error) {
+          console.error("Error syncing NFL schedule:", error);
         }
         console.log("Daily Sleeper API sync job completed successfully");
       } catch (error) {
