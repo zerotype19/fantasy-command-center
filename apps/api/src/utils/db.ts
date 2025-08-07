@@ -40,22 +40,74 @@ export class DatabaseService {
   async upsertSleeperPlayers(players: any[]): Promise<void> {
     if (players.length === 0) return;
 
-    // Use a simpler approach with just the essential columns
+    // Insert all available fields from Sleeper API
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO players (
-        sleeper_id, espn_id, name, position, team, status, bye_week
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        sleeper_id, espn_id, name, position, team, status, bye_week,
+        age, years_exp, college, weight, height, jersey_number, fantasy_positions,
+        fantasy_data_id, search_rank, injury_status, injury_start_date, injury_notes,
+        practice_participation, depth_chart_position, depth_chart_order, yahoo_id,
+        rotowire_id, rotoworld_id, sportradar_id, first_name, last_name, birth_date,
+        birth_city, birth_state, birth_country, high_school, hashtag, team_abbr,
+        team_changed_at, gsis_id, swish_id, stats_id, oddsjam_id, opta_id,
+        pandascore_id, sport, news_updated, practice_description, injury_body_part,
+        search_first_name, search_last_name, search_full_name, metadata, competitions
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const batch = players.map(player => 
       stmt.bind(
         player.sleeper_id,
-        player.espn_id || null, // Handle null espn_id
+        player.espn_id || null,
         player.name,
         player.position,
         player.team,
         player.status,
-        player.bye_week
+        player.bye_week,
+        player.age || null,
+        player.years_exp || null,
+        player.college || null,
+        player.weight || null,
+        player.height || null,
+        player.jersey_number || null,
+        player.fantasy_positions ? JSON.stringify(player.fantasy_positions) : null,
+        player.fantasy_data_id || null,
+        player.search_rank || null,
+        player.injury_status || null,
+        player.injury_start_date || null,
+        player.injury_notes || null,
+        player.practice_participation || null,
+        player.depth_chart_position || null,
+        player.depth_chart_order || null,
+        player.yahoo_id || null,
+        player.rotowire_id || null,
+        player.rotoworld_id || null,
+        player.sportradar_id || null,
+        player.first_name || null,
+        player.last_name || null,
+        player.birth_date || null,
+        player.birth_city || null,
+        player.birth_state || null,
+        player.birth_country || null,
+        player.high_school || null,
+        player.hashtag || null,
+        player.team_abbr || null,
+        player.team_changed_at || null,
+        player.gsis_id || null,
+        player.swish_id || null,
+        player.stats_id || null,
+        player.oddsjam_id || null,
+        player.opta_id || null,
+        player.pandascore_id || null,
+        player.sport || null,
+        player.news_updated || null,
+        player.practice_description || null,
+        player.injury_body_part || null,
+        player.search_first_name || null,
+        player.search_last_name || null,
+        player.search_full_name || null,
+        player.metadata ? JSON.stringify(player.metadata) : null,
+        player.competitions ? JSON.stringify(player.competitions) : null
       )
     );
 
