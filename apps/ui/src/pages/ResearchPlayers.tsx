@@ -95,9 +95,9 @@ export function ResearchPlayers() {
     setIsLoadingPlayers(true);
     try {
       // Load all players with FantasyPros data
-      const data = await get<Player[]>('/players/with-fantasy-data');
-      if (data) {
-        setPlayers(data);
+      const response = await get<any>('/players/with-fantasy-data');
+      if (response && response.players) {
+        setPlayers(response.players);
       }
     } catch (error) {
       console.error('Error fetching players:', error);
