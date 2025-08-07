@@ -639,24 +639,10 @@ export class PlayersHandler {
       // Test database connection first
       try {
         console.log('Testing database connection...');
-        const testQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
+        const testQuery = await this.env.DB.prepare('SELECT 1 as test').first();
         console.log('Database connection test successful:', testQuery);
         
-        console.log('Testing players query...');
-        const playersQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM players WHERE team IS NOT NULL AND team != \'\'').first();
-        console.log('Players query test successful:', playersQuery);
-        
-        console.log('Testing schedule query without parameter...');
-        const scheduleQueryNoParam = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
-        console.log('Schedule query without parameter test successful:', scheduleQueryNoParam);
-        
-        console.log('Testing schedule query with hardcoded parameter...');
-        const scheduleQueryHardcoded = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule WHERE week = 1').first();
-        console.log('Schedule query with hardcoded parameter test successful:', scheduleQueryHardcoded);
-        
         console.log('All database tests passed!');
-        
-
         
       } catch (error) {
         console.error('Database connection test failed:', error);
@@ -669,29 +655,135 @@ export class PlayersHandler {
         });
       }
 
-      // Sync defense strength first (skip for now to debug)
-      // await syncDefenseStrength(this.db.db);
-
       // Generate matchups for the week
       console.log('Calling generatePlayerMatchupsForWeek...');
-      await generatePlayerMatchupsForWeek(this.db.db, weekNum);
-      console.log('generatePlayerMatchupsForWeek completed');
+      
+      // Test the exact same database binding as the utility function
+      console.log('Testing utility function database binding...');
+      const testStmt = this.env.DB.prepare(`
+        SELECT * FROM nfl_schedule WHERE week = ?
+      `);
+      const testResult = await testStmt.bind(weekNum).all();
+      const testSchedule = testResult.results || testResult;
+      console.log(`Test query found ${testSchedule.length} games for week ${weekNum}`);
+      
+      // Test the exact same insert as the utility function
+      console.log('Testing utility function insert...');
+      const testPlayer = await this.env.DB.prepare(`
+        SELECT * FROM players WHERE team IS NOT NULL AND team != '' LIMIT 1
+      `).first();
+      
+      if (testPlayer) {
+        const insertStmt = this.env.DB.prepare(`
+          INSERT OR REPLACE INTO player_matchups (
+            player_id, week, game_id, opponent_team, is_home
+          ) VALUES (?, ?, ?, ?, ?)
+        `);
+        await insertStmt.bind(
+          testPlayer.sleeper_id,
+          weekNum,
+          'test-game-utility',
+          'TEST',
+          1
+        ).run();
+        console.log('Utility function insert test successful');
+      }
+      
+      // Generate matchups directly in handler (bypass utility function)
+      console.log('Generating matchups directly in handler...');
+      
+      // Get schedule for the week
+      console.log(`Fetching schedule for week ${weekNum}...`);
+      const stmt = this.env.DB.prepare(`
+        SELECT * FROM nfl_schedule WHERE week = ?
+      `);
+      const result = await stmt.bind(weekNum).all();
+      const schedule = result.results || result;
+      console.log(`Found ${schedule.length} games for week ${weekNum}`);
+
+      // Get all players with team information
+      console.log('Fetching players with team information...');
+      const playersStmt = this.env.DB.prepare(`
+        SELECT * FROM players WHERE team IS NOT NULL AND team != ''
+      `);
+      const playersResult = await playersStmt.all();
+      const players = playersResult.results || playersResult;
+      console.log(`Found ${players.length} players with team information`);
+
+      // Process first 2 games for testing
+      const gamesToProcess = schedule.slice(0, 2);
+      console.log(`Processing ${gamesToProcess.length} games out of ${schedule.length} total games`);
+      
+      for (const game of gamesToProcess) {
+        const homeTeam = game.home_team;
+        const awayTeam = game.away_team;
+        const gameId = game.game_id;
+
+        console.log(`Processing game: ${awayTeam} @ ${homeTeam} (game_id: ${gameId})`);
+
+        const homePlayers = players.filter((p: any) => p.team === homeTeam);
+        const awayPlayers = players.filter((p: any) => p.team === awayTeam);
+
+        console.log(`Found ${homePlayers.length} home players and ${awayPlayers.length} away players`);
+
+        // Process first 5 players per team
+        const allPlayers = [...homePlayers.slice(0, 5), ...awayPlayers.slice(0, 5)];
+        if (allPlayers.length === 0) {
+          console.log('No players found for this game');
+          continue;
+        }
+
+        for (const player of allPlayers) {
+          const isHome = player.team === homeTeam;
+          const opponentTeam = isHome ? awayTeam : homeTeam;
+
+          // Insert or replace matchup
+          try {
+            console.log(`Inserting matchup for player ${player.sleeper_id}`);
+            
+            // Try a simpler approach without parameter binding
+            const insertQuery = `
+              INSERT OR REPLACE INTO player_matchups (
+                player_id, week, game_id, opponent_team, is_home
+              ) VALUES (${player.sleeper_id}, ${weekNum}, '${gameId}', '${opponentTeam}', ${isHome ? 1 : 0})
+            `;
+            
+            console.log('Insert query:', insertQuery);
+            
+            await this.env.DB.prepare(insertQuery).run();
+            
+            console.log(`Successfully inserted matchup for player ${player.sleeper_id}`);
+          } catch (error) {
+            console.error(`Error inserting matchup for player ${player.sleeper_id}:`, error);
+          }
+        }
+      }
+      
+      console.log('Matchup generation completed');
+
+      // Sync defense strength first
+      console.log('Syncing defense strength...');
+      await syncDefenseStrength(this.env.DB);
+
+
 
       // Enrich with weather data if requested
       if (enrichWeather) {
-        const games = await this.db.db.prepare(`
+        console.log('Enriching weather data...');
+        const games = await this.env.DB.prepare(`
           SELECT * FROM nfl_schedule WHERE week = ?
-        `).all(weekNum);
+        `).bind(weekNum).all();
+        const gamesResult = games.results || games;
 
-        for (const game of games) {
-          await enrichWeatherForGame(this.db.db, game);
+        for (const game of gamesResult) {
+          await enrichWeatherForGame(this.env.DB, game);
         }
       }
 
       // Get matchup count
-      const matchupCount = await this.db.db.prepare(`
+      const matchupCount = await this.env.DB.prepare(`
         SELECT COUNT(*) as count FROM player_matchups WHERE week = ?
-      `).first(weekNum);
+      `).bind(weekNum).first();
 
       return new Response(JSON.stringify({
         success: true,
@@ -716,32 +808,32 @@ export class PlayersHandler {
     }
   }
 
-  async handleTestDatabase(request: Request): Promise<Response> {
+    async handleTestDatabase(request: Request): Promise<Response> {
     try {
       console.log('Testing database connection...');
       const testQuery = await this.db.db.prepare('SELECT 1 as test').first();
       console.log('Database connection test successful:', testQuery);
-      
+
       console.log('Testing nfl_schedule table...');
       const scheduleQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
       console.log('Schedule query test successful:', scheduleQuery);
-      
+
       console.log('Testing players table...');
       const playersQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM players').first();
       console.log('Players query test successful:', playersQuery);
-      
+
       console.log('Testing parameter binding...');
       const paramQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule WHERE week = ?').bind(1).first();
       console.log('Parameter query test successful:', paramQuery);
-      
+
       console.log('Testing insert...');
       const insertStmt = this.db.db.prepare('INSERT OR REPLACE INTO player_matchups (player_id, week, game_id, opponent_team, is_home) VALUES (?, ?, ?, ?, ?)');
       await insertStmt.bind(999999, 1, 'test-game', 'TEST', 1).run();
       console.log('Insert test successful');
-      
+
       console.log('Testing exact utility function queries...');
       const week = 1;
-      
+
       // Test the exact same queries as the utility function
       const stmt = this.db.db.prepare(`
         SELECT * FROM nfl_schedule WHERE week = ?
@@ -749,14 +841,33 @@ export class PlayersHandler {
       const result = await stmt.bind(week).all();
       const schedule = result.results || result;
       console.log(`Found ${schedule.length} games for week ${week}`);
-      
+
       const playersStmt = this.db.db.prepare(`
         SELECT * FROM players WHERE team IS NOT NULL AND team != ''
       `);
       const playersResult = await playersStmt.all();
       const players = playersResult.results || playersResult;
       console.log(`Found ${players.length} players with team information`);
-      
+
+      // Test the exact same insert as the utility function
+      console.log('Testing utility function insert...');
+      const testPlayer = players[0];
+      if (testPlayer) {
+        const insertStmt2 = this.db.db.prepare(`
+          INSERT OR REPLACE INTO player_matchups (
+            player_id, week, game_id, opponent_team, is_home
+          ) VALUES (?, ?, ?, ?, ?)
+        `);
+        await insertStmt2.bind(
+          testPlayer.sleeper_id,
+          week,
+          'test-game-2',
+          'TEST2',
+          1
+        ).run();
+        console.log('Utility function insert test successful');
+      }
+
       return new Response(JSON.stringify({
         success: true,
         message: 'Database tests passed',
@@ -776,6 +887,42 @@ export class PlayersHandler {
       return new Response(JSON.stringify({
         success: false,
         error: 'Database test failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestMatchupsDB(request: Request): Promise<Response> {
+    try {
+      console.log('Testing matchups database connection...');
+      
+      // Test 1: Simple query
+      const testQuery = await this.env.DB.prepare('SELECT 1 as test').first();
+      console.log('Test 1 successful:', testQuery);
+      
+      // Test 2: Count query
+      const countQuery = await this.env.DB.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
+      console.log('Test 2 successful:', countQuery);
+      
+      console.log('All matchups database tests passed!');
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Matchups database tests passed',
+        data: {
+          test: testQuery,
+          count: countQuery
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Matchups database test failed:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Matchups database test failed: ' + (error instanceof Error ? error.message : 'Unknown error')
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -815,7 +962,8 @@ export class PlayersHandler {
 
       query += ' ORDER BY pm.week, p.name';
 
-      const matchups = await this.db.db.prepare(query).all(...params);
+      const matchupsResult = await this.env.DB.prepare(query).bind(...params).all();
+      const matchups = matchupsResult.results || matchupsResult;
 
       return new Response(JSON.stringify({
         success: true,
@@ -828,6 +976,149 @@ export class PlayersHandler {
       });
     } catch (error) {
       console.error('Get matchups error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleSyncWeather(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get('week');
+      
+      if (!week) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Week parameter is required'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const weekNum = parseInt(week);
+      if (isNaN(weekNum) || weekNum < 1 || weekNum > 18) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Week must be between 1 and 18'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`Starting weather sync for week ${weekNum}...`);
+
+      // Import the weather enrichment function
+      const { enrichWeatherForWeek } = await import('../utils/matchups');
+      
+      // Enrich weather for the week
+      await enrichWeatherForWeek(this.env.DB, weekNum);
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Weather data synced for week ${weekNum}`,
+        data: {
+          week: weekNum,
+          synced_at: new Date().toISOString()
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Weather sync error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleSyncDefenseStrength(request: Request): Promise<Response> {
+    try {
+      console.log('Starting defense strength sync...');
+
+      // Import the defense strength sync function
+      const { syncDefenseStrength } = await import('../utils/matchups');
+      
+      // Sync defense strength
+      await syncDefenseStrength(this.env.DB);
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Defense strength data synced',
+        data: {
+          synced_at: new Date().toISOString()
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Defense strength sync error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleUpdateMatchupsWithDefense(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get('week');
+      
+      if (!week) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Week parameter is required'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const weekNum = parseInt(week);
+      if (isNaN(weekNum) || weekNum < 1 || weekNum > 18) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Week must be between 1 and 18'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`Updating matchups with defense strength for week ${weekNum}...`);
+
+      // Import the update function
+      const { updateMatchupsWithDefenseStrength } = await import('../utils/matchups');
+      
+      // Update matchups with defense strength
+      await updateMatchupsWithDefenseStrength(this.env.DB, weekNum);
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Matchups updated with defense strength for week ${weekNum}`,
+        data: {
+          week: weekNum,
+          updated_at: new Date().toISOString()
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Update matchups with defense error:', error);
       return new Response(JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

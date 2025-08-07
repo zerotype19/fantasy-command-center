@@ -55,6 +55,16 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
               🏈 NFL Schedule
             </button>
             <button
+              onClick={() => handleTabClick('matchups')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'matchups'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🆚 Player Matchups
+            </button>
+            <button
               onClick={() => handleTabClick('team')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'team'

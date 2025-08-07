@@ -163,9 +163,41 @@ export default {
           }
           break;
 
+        case '/sync/weather':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleSyncWeather(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/sync/defense-strength':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleSyncDefenseStrength(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/sync/matchups-defense':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleUpdateMatchupsWithDefense(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/test/database':
           if (request.method === 'GET') {
             response = await playersHandler.handleTestDatabase(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/matchups-db':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestMatchupsDB(request);
           } else {
             response = new Response('Method not allowed', { status: 405 });
           }

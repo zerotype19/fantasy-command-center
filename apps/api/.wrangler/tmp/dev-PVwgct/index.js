@@ -1,8 +1,15 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 
 // .wrangler/tmp/bundle-41kHW4/checked-fetch.js
-var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
     (typeof request === "string" ? new Request(request, init) : request).url
@@ -18,12 +25,19 @@ function checkURL(request, init) {
     }
   }
 }
-__name(checkURL, "checkURL");
-globalThis.fetch = new Proxy(globalThis.fetch, {
-  apply(target, thisArg, argArray) {
-    const [request, init] = argArray;
-    checkURL(request, init);
-    return Reflect.apply(target, thisArg, argArray);
+var urls;
+var init_checked_fetch = __esm({
+  ".wrangler/tmp/bundle-41kHW4/checked-fetch.js"() {
+    "use strict";
+    urls = /* @__PURE__ */ new Set();
+    __name(checkURL, "checkURL");
+    globalThis.fetch = new Proxy(globalThis.fetch, {
+      apply(target, thisArg, argArray) {
+        const [request, init] = argArray;
+        checkURL(request, init);
+        return Reflect.apply(target, thisArg, argArray);
+      }
+    });
   }
 });
 
@@ -33,16 +47,473 @@ function stripCfConnectingIPHeader(input, init) {
   request.headers.delete("CF-Connecting-IP");
   return request;
 }
-__name(stripCfConnectingIPHeader, "stripCfConnectingIPHeader");
-globalThis.fetch = new Proxy(globalThis.fetch, {
-  apply(target, thisArg, argArray) {
-    return Reflect.apply(target, thisArg, [
-      stripCfConnectingIPHeader.apply(null, argArray)
-    ]);
+var init_strip_cf_connecting_ip_header = __esm({
+  ".wrangler/tmp/bundle-41kHW4/strip-cf-connecting-ip-header.js"() {
+    "use strict";
+    __name(stripCfConnectingIPHeader, "stripCfConnectingIPHeader");
+    globalThis.fetch = new Proxy(globalThis.fetch, {
+      apply(target, thisArg, argArray) {
+        return Reflect.apply(target, thisArg, [
+          stripCfConnectingIPHeader.apply(null, argArray)
+        ]);
+      }
+    });
   }
 });
 
+// wrangler-modules-watch:wrangler:modules-watch
+var init_wrangler_modules_watch = __esm({
+  "wrangler-modules-watch:wrangler:modules-watch"() {
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+  }
+});
+
+// ../../node_modules/wrangler/templates/modules-watch-stub.js
+var init_modules_watch_stub = __esm({
+  "../../node_modules/wrangler/templates/modules-watch-stub.js"() {
+    init_wrangler_modules_watch();
+  }
+});
+
+// src/constants/stadiumLocations.ts
+var stadiumCoordinates;
+var init_stadiumLocations = __esm({
+  "src/constants/stadiumLocations.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    stadiumCoordinates = {
+      // AFC Teams
+      BUF: { lat: 42.7737, lon: -78.7869 },
+      // Highmark Stadium
+      MIA: { lat: 25.9583, lon: -80.2389 },
+      // Hard Rock Stadium
+      NE: { lat: 42.0909, lon: -71.2643 },
+      // Gillette Stadium
+      NYJ: { lat: 40.8136, lon: -74.0744 },
+      // MetLife Stadium
+      BAL: { lat: 39.2783, lon: -76.6227 },
+      // M&T Bank Stadium
+      CIN: { lat: 39.0955, lon: -84.516 },
+      // Paycor Stadium
+      CLE: { lat: 41.5061, lon: -81.6995 },
+      // FirstEnergy Stadium
+      PIT: { lat: 40.4468, lon: -80.0158 },
+      // Acrisure Stadium
+      HOU: { lat: 29.6847, lon: -95.4107 },
+      // NRG Stadium
+      IND: { lat: 39.7601, lon: -86.1639 },
+      // Lucas Oil Stadium
+      JAX: { lat: 30.3239, lon: -81.6372 },
+      // TIAA Bank Field
+      TEN: { lat: 36.1663, lon: -86.7714 },
+      // Nissan Stadium
+      DEN: { lat: 39.7439, lon: -105.0201 },
+      // Empower Field at Mile High
+      KC: { lat: 39.049, lon: -94.4839 },
+      // Arrowhead Stadium
+      LV: { lat: 36.0908, lon: -115.1836 },
+      // Allegiant Stadium
+      LAC: { lat: 33.9533, lon: -118.3389 },
+      // SoFi Stadium
+      // NFC Teams
+      DAL: { lat: 32.7473, lon: -97.0945 },
+      // AT&T Stadium
+      NYG: { lat: 40.8136, lon: -74.0744 },
+      // MetLife Stadium
+      PHI: { lat: 39.9008, lon: -75.1674 },
+      // Lincoln Financial Field
+      WAS: { lat: 38.9076, lon: -76.8644 },
+      // FedExField
+      CHI: { lat: 41.8623, lon: -87.6166 },
+      // Soldier Field
+      DET: { lat: 42.34, lon: -83.0456 },
+      // Ford Field
+      GB: { lat: 44.5013, lon: -88.0622 },
+      // Lambeau Field
+      MIN: { lat: 44.974, lon: -93.2583 },
+      // U.S. Bank Stadium
+      ATL: { lat: 33.7553, lon: -84.4006 },
+      // Mercedes-Benz Stadium
+      CAR: { lat: 35.2253, lon: -80.8431 },
+      // Bank of America Stadium
+      NO: { lat: 29.9511, lon: -90.0815 },
+      // Caesars Superdome
+      TB: { lat: 27.9761, lon: -82.5033 },
+      // Raymond James Stadium
+      ARI: { lat: 33.5276, lon: -112.2626 },
+      // State Farm Stadium
+      LAR: { lat: 33.9533, lon: -118.3389 },
+      // SoFi Stadium
+      SF: { lat: 37.403, lon: -121.97 },
+      // Levi's Stadium
+      SEA: { lat: 47.5952, lon: -122.3316 }
+      // Lumen Field
+    };
+  }
+});
+
+// src/utils/matchups.ts
+var matchups_exports = {};
+__export(matchups_exports, {
+  enrichWeatherForGame: () => enrichWeatherForGame,
+  enrichWeatherForWeek: () => enrichWeatherForWeek,
+  generatePlayerMatchupsForWeek: () => generatePlayerMatchupsForWeek,
+  syncDefenseStrength: () => syncDefenseStrength,
+  updateMatchupsWithDefenseStrength: () => updateMatchupsWithDefenseStrength
+});
+async function generatePlayerMatchupsForWeek(db, week) {
+  console.log(`Generating player matchups for week ${week}...`);
+  console.log(`Fetching schedule for week ${week}...`);
+  let schedule;
+  try {
+    console.log(`Executing query: SELECT * FROM nfl_schedule WHERE week = ${week}`);
+    const stmt = db.prepare(`
+      SELECT * FROM nfl_schedule WHERE week = ?
+    `);
+    const result = await stmt.bind(week).all();
+    schedule = result.results || result;
+    console.log(`Found ${schedule.length} games for week ${week}`);
+  } catch (error) {
+    console.error("Error fetching schedule:", error);
+    throw error;
+  }
+  console.log("Fetching players with team information...");
+  let players;
+  try {
+    const playersStmt = db.prepare(`
+      SELECT * FROM players WHERE team IS NOT NULL AND team != ''
+    `);
+    const playersResult = await playersStmt.all();
+    players = playersResult.results || playersResult;
+    console.log(`Found ${players.length} players with team information`);
+  } catch (error) {
+    console.error("Error fetching players:", error);
+    throw error;
+  }
+  console.log(`Found ${schedule.length} games and ${players.length} players for week ${week}`);
+  for (const game of schedule) {
+    const homeTeam = game.home_team;
+    const awayTeam = game.away_team;
+    const gameId = game.game_id;
+    console.log(`Processing game: ${awayTeam} @ ${homeTeam} (game_id: ${gameId})`);
+    const homePlayers = players.filter((p) => p.team === homeTeam);
+    const awayPlayers = players.filter((p) => p.team === awayTeam);
+    console.log(`Found ${homePlayers.length} home players and ${awayPlayers.length} away players`);
+    const allPlayers = [...homePlayers, ...awayPlayers];
+    if (allPlayers.length === 0) {
+      console.log("No players found for this game");
+      continue;
+    }
+    for (const player of allPlayers) {
+      const isHome = player.team === homeTeam;
+      const opponentTeam = isHome ? awayTeam : homeTeam;
+      let restDays = null;
+      try {
+        const prevGameStmt = db.prepare(`
+          SELECT game_date FROM player_matchups
+          WHERE player_id = ? AND week < ?
+          ORDER BY week DESC LIMIT 1
+        `);
+        const prevGameResult = await prevGameStmt.bind(player.sleeper_id, week).all();
+        const prevGame = prevGameResult.results || prevGameResult;
+        if (prevGame.length > 0 && game.game_date) {
+          const prevDate = new Date(prevGame[0].game_date);
+          const thisDate = new Date(game.game_date);
+          restDays = Math.floor((thisDate.getTime() - prevDate.getTime()) / (1e3 * 60 * 60 * 24));
+        }
+      } catch (error) {
+        console.log(`Error calculating rest days for player ${player.sleeper_id}:`, error);
+      }
+      let defenseRank = null;
+      try {
+        const defenseStmt = db.prepare(`
+          SELECT ecr_rank FROM defense_strength WHERE team = ?
+        `);
+        const defenseResult = await defenseStmt.bind(opponentTeam).first();
+        if (defenseResult) {
+          defenseRank = defenseResult.ecr_rank;
+        }
+      } catch (error) {
+        console.log(`Error getting defense rank for ${opponentTeam}:`, error);
+      }
+      try {
+        console.log(`Inserting matchup for player ${player.sleeper_id}`);
+        const insertStmt = db.prepare(`
+          INSERT OR REPLACE INTO player_matchups (
+            player_id, week, game_id, opponent_team, is_home, game_date, game_time, network,
+            rest_days, opponent_position_rank
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        await insertStmt.bind(
+          player.sleeper_id,
+          week,
+          gameId,
+          opponentTeam,
+          isHome ? 1 : 0,
+          game.game_date || null,
+          game.kickoff_time || null,
+          game.network || null,
+          restDays,
+          defenseRank
+        ).run();
+        console.log(`Successfully inserted matchup for player ${player.sleeper_id}`);
+      } catch (error) {
+        console.error(`Error inserting matchup for player ${player.sleeper_id}:`, error);
+      }
+    }
+  }
+  console.log(`Completed generating matchups for week ${week}`);
+}
+async function enrichWeatherForGame(db, game) {
+  const { lat, lon } = stadiumCoordinates[game.home_team] || {};
+  if (!lat || !lon) {
+    console.log(`No coordinates found for ${game.home_team}`);
+    return;
+  }
+  try {
+    const pointRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, {
+      headers: { "User-Agent": "FantasyCommandCenter (fantasy-command-center@example.com)" }
+    });
+    if (!pointRes.ok) {
+      console.log(`Failed to get weather points for ${game.home_team}: ${pointRes.status}`);
+      return;
+    }
+    const pointData = await pointRes.json();
+    const forecastUrl = pointData.properties?.forecast;
+    if (!forecastUrl) {
+      console.log(`No forecast URL found for ${game.home_team}`);
+      return;
+    }
+    const forecastRes = await fetch(forecastUrl, {
+      headers: { "User-Agent": "FantasyCommandCenter" }
+    });
+    if (!forecastRes.ok) {
+      console.log(`Failed to get forecast for ${game.home_team}: ${forecastRes.status}`);
+      return;
+    }
+    const forecastData = await forecastRes.json();
+    const periods = forecastData.properties?.periods;
+    if (!periods || periods.length === 0) {
+      console.log(`No forecast periods found for ${game.home_team}`);
+      return;
+    }
+    const gameDate = new Date(game.game_date).toDateString();
+    const matchingForecast = periods.find(
+      (p) => new Date(p.startTime).toDateString() === gameDate
+    );
+    if (!matchingForecast) {
+      console.log(`No matching forecast found for game date ${gameDate}`);
+      return;
+    }
+    const temp = matchingForecast.temperature;
+    const tempLow = temp < 60 ? temp : null;
+    const tempHigh = temp > 60 ? temp : null;
+    await db.prepare(`
+      UPDATE player_matchups
+      SET
+        weather_forecast = ?,
+        temperature_low = ?,
+        temperature_high = ?,
+        precipitation_chance = ?,
+        wind_speed = ?
+      WHERE game_id = ?
+    `).run(
+      matchingForecast.shortForecast,
+      tempLow,
+      tempHigh,
+      matchingForecast.probabilityOfPrecipitation?.value || null,
+      matchingForecast.windSpeed || null,
+      game.game_id
+    );
+    console.log(`Updated weather for ${game.home_team} vs ${game.away_team}: ${matchingForecast.shortForecast}`);
+  } catch (error) {
+    console.error(`Error enriching weather for ${game.home_team}:`, error);
+  }
+}
+async function enrichWeatherForWeek(db, week) {
+  console.log(`Enriching weather for week ${week}...`);
+  try {
+    const scheduleStmt = db.prepare(`
+      SELECT * FROM nfl_schedule WHERE week = ?
+    `);
+    const scheduleResult = await scheduleStmt.bind(week).all();
+    const schedule = scheduleResult.results || scheduleResult;
+    console.log(`Found ${schedule.length} games to enrich with weather data`);
+    for (const game of schedule) {
+      console.log(`Enriching weather for game: ${game.away_team} @ ${game.home_team}`);
+      await enrichWeatherForGame(db, game);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    console.log(`Completed weather enrichment for week ${week}`);
+  } catch (error) {
+    console.error(`Error enriching weather for week ${week}:`, error);
+    throw error;
+  }
+}
+async function syncDefenseStrength(db) {
+  console.log("Syncing defense strength from FantasyPros...");
+  try {
+    const apiKey = process.env.FANTASYPROS_API_KEY;
+    if (!apiKey) {
+      console.log("No FantasyPros API key found, using sample data");
+      const sampleDefenses = [
+        { team: "SF", ecr_rank: 1, tier: "Tier 1", pos_rank: 1 },
+        { team: "DAL", ecr_rank: 2, tier: "Tier 1", pos_rank: 2 },
+        { team: "BAL", ecr_rank: 3, tier: "Tier 1", pos_rank: 3 },
+        { team: "KC", ecr_rank: 4, tier: "Tier 2", pos_rank: 4 },
+        { team: "BUF", ecr_rank: 5, tier: "Tier 2", pos_rank: 5 },
+        { team: "NE", ecr_rank: 6, tier: "Tier 2", pos_rank: 6 },
+        { team: "CLE", ecr_rank: 7, tier: "Tier 2", pos_rank: 7 },
+        { team: "NYJ", ecr_rank: 8, tier: "Tier 3", pos_rank: 8 },
+        { team: "PIT", ecr_rank: 9, tier: "Tier 3", pos_rank: 9 },
+        { team: "CIN", ecr_rank: 10, tier: "Tier 3", pos_rank: 10 },
+        { team: "LAR", ecr_rank: 11, tier: "Tier 3", pos_rank: 11 },
+        { team: "PHI", ecr_rank: 12, tier: "Tier 4", pos_rank: 12 },
+        { team: "GB", ecr_rank: 13, tier: "Tier 4", pos_rank: 13 },
+        { team: "MIN", ecr_rank: 14, tier: "Tier 4", pos_rank: 14 },
+        { team: "DET", ecr_rank: 15, tier: "Tier 4", pos_rank: 15 },
+        { team: "CHI", ecr_rank: 16, tier: "Tier 5", pos_rank: 16 },
+        { team: "ATL", ecr_rank: 17, tier: "Tier 5", pos_rank: 17 },
+        { team: "CAR", ecr_rank: 18, tier: "Tier 5", pos_rank: 18 },
+        { team: "NO", ecr_rank: 19, tier: "Tier 5", pos_rank: 19 },
+        { team: "TB", ecr_rank: 20, tier: "Tier 6", pos_rank: 20 },
+        { team: "ARI", ecr_rank: 21, tier: "Tier 6", pos_rank: 21 },
+        { team: "SEA", ecr_rank: 22, tier: "Tier 6", pos_rank: 22 },
+        { team: "HOU", ecr_rank: 23, tier: "Tier 6", pos_rank: 23 },
+        { team: "IND", ecr_rank: 24, tier: "Tier 7", pos_rank: 24 },
+        { team: "JAX", ecr_rank: 25, tier: "Tier 7", pos_rank: 25 },
+        { team: "TEN", ecr_rank: 26, tier: "Tier 7", pos_rank: 26 },
+        { team: "DEN", ecr_rank: 27, tier: "Tier 7", pos_rank: 27 },
+        { team: "LV", ecr_rank: 28, tier: "Tier 8", pos_rank: 28 },
+        { team: "LAC", ecr_rank: 29, tier: "Tier 8", pos_rank: 29 },
+        { team: "NYG", ecr_rank: 30, tier: "Tier 8", pos_rank: 30 },
+        { team: "WAS", ecr_rank: 31, tier: "Tier 8", pos_rank: 31 },
+        { team: "MIA", ecr_rank: 32, tier: "Tier 8", pos_rank: 32 }
+      ];
+      await db.prepare("DELETE FROM defense_strength").run();
+      const insertStmt2 = db.prepare(`
+        INSERT INTO defense_strength (team, ecr_rank, tier, pos_rank)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const defense of sampleDefenses) {
+        await insertStmt2.bind(
+          defense.team,
+          defense.ecr_rank,
+          defense.tier,
+          defense.pos_rank
+        ).run();
+      }
+      console.log(`Synced ${sampleDefenses.length} defense rankings (sample data)`);
+      return;
+    }
+    const response = await fetch("https://api.fantasypros.com/public/v2/rankings/nfl/defense/consensus-cheatsheets", {
+      headers: {
+        "x-api-key": apiKey,
+        "User-Agent": "FantasyCommandCenter/1.0"
+      }
+    });
+    if (!response.ok) {
+      console.log(`FantasyPros API error: ${response.status}, using sample data`);
+      return;
+    }
+    const data = await response.json();
+    const defenses = data.rankings || [];
+    await db.prepare("DELETE FROM defense_strength").run();
+    const insertStmt = db.prepare(`
+      INSERT INTO defense_strength (team, ecr_rank, tier, pos_rank)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (const defense of defenses) {
+      await insertStmt.bind(
+        defense.team,
+        defense.ecr_rank,
+        defense.tier,
+        defense.pos_rank
+      ).run();
+    }
+    console.log(`Synced ${defenses.length} defense rankings from FantasyPros`);
+  } catch (error) {
+    console.error("Error syncing defense strength:", error);
+  }
+}
+async function updateMatchupsWithDefenseStrength(db, week) {
+  console.log(`Updating matchups with defense strength for week ${week}...`);
+  try {
+    const matchupsStmt = db.prepare(`
+      SELECT pm.*, p.team as player_team
+      FROM player_matchups pm
+      JOIN players p ON pm.player_id = p.sleeper_id
+      WHERE pm.week = ?
+    `);
+    const matchupsResult = await matchupsStmt.bind(week).all();
+    const matchups = matchupsResult.results || matchupsResult;
+    console.log(`Found ${matchups.length} matchups to update with defense strength`);
+    const updateStmt = db.prepare(`
+      UPDATE player_matchups 
+      SET opponent_position_rank = ?
+      WHERE player_id = ? AND week = ?
+    `);
+    for (const matchup of matchups) {
+      try {
+        const defenseStmt = db.prepare(`
+          SELECT ecr_rank FROM defense_strength WHERE team = ?
+        `);
+        const defenseResult = await defenseStmt.bind(matchup.opponent_team).first();
+        if (defenseResult) {
+          await updateStmt.bind(
+            defenseResult.ecr_rank,
+            matchup.player_id,
+            week
+          ).run();
+        }
+      } catch (error) {
+        console.log(`Error updating defense strength for player ${matchup.player_id}:`, error);
+      }
+    }
+    console.log(`Completed updating defense strength for week ${week}`);
+  } catch (error) {
+    console.error(`Error updating defense strength for week ${week}:`, error);
+    throw error;
+  }
+}
+var init_matchups = __esm({
+  "src/utils/matchups.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    init_stadiumLocations();
+    __name(generatePlayerMatchupsForWeek, "generatePlayerMatchupsForWeek");
+    __name(enrichWeatherForGame, "enrichWeatherForGame");
+    __name(enrichWeatherForWeek, "enrichWeatherForWeek");
+    __name(syncDefenseStrength, "syncDefenseStrength");
+    __name(updateMatchupsWithDefenseStrength, "updateMatchupsWithDefenseStrength");
+  }
+});
+
+// .wrangler/tmp/bundle-41kHW4/middleware-loader.entry.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// .wrangler/tmp/bundle-41kHW4/middleware-insertion-facade.js
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// src/index.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
 // src/utils/db.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var DatabaseService = class {
   db;
   constructor(db) {
@@ -307,7 +778,15 @@ async function getNFLSchedule(db, week) {
 }
 __name(getNFLSchedule, "getNFLSchedule");
 
+// src/services/noaa.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
 // src/utils/fetchHelpers.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var FetchError = class extends Error {
   constructor(message, status, url, response) {
     super(message);
@@ -479,7 +958,15 @@ var NOAAService = class {
 };
 __name(NOAAService, "NOAAService");
 
+// src/handlers/league.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
 // src/services/espn.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var ESPN_BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
 async function fetchLeagueData(leagueId) {
   const url = `${ESPN_BASE_URL}/seasons/2024/segments/0/leagues/${leagueId}?view=mSettings&view=mRoster&view=mTeam`;
@@ -656,7 +1143,15 @@ var LeagueHandler = class {
 };
 __name(LeagueHandler, "LeagueHandler");
 
+// src/handlers/players.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
 // src/services/sleeper.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var SLEEPER_BASE_URL = "https://api.sleeper.app/v1";
 async function fetchAllPlayers() {
   const url = `${SLEEPER_BASE_URL}/players/nfl`;
@@ -790,6 +1285,9 @@ function transformSleeperPlayer(player) {
 __name(transformSleeperPlayer, "transformSleeperPlayer");
 
 // src/services/fantasyPros.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var FANTASY_PROS_BASE_URL = "https://api.fantasypros.com/public/v2/json";
 function normalizePlayerName(name) {
   if (!name)
@@ -977,6 +1475,9 @@ function matchFantasyProsToPlayerUpdates(fantasyProsData, players) {
 __name(matchFantasyProsToPlayerUpdates, "matchFantasyProsToPlayerUpdates");
 
 // src/services/nflSchedule.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 function generateGameId(gameDate, homeTeam, awayTeam, week) {
   if (week) {
     return `${gameDate}-${homeTeam}-${awayTeam}-W${week}`;
@@ -1181,219 +1682,8 @@ function parseNFLScheduleHTML(html) {
 }
 __name(parseNFLScheduleHTML, "parseNFLScheduleHTML");
 
-// src/constants/stadiumLocations.ts
-var stadiumCoordinates = {
-  // AFC Teams
-  BUF: { lat: 42.7737, lon: -78.7869 },
-  // Highmark Stadium
-  MIA: { lat: 25.9583, lon: -80.2389 },
-  // Hard Rock Stadium
-  NE: { lat: 42.0909, lon: -71.2643 },
-  // Gillette Stadium
-  NYJ: { lat: 40.8136, lon: -74.0744 },
-  // MetLife Stadium
-  BAL: { lat: 39.2783, lon: -76.6227 },
-  // M&T Bank Stadium
-  CIN: { lat: 39.0955, lon: -84.516 },
-  // Paycor Stadium
-  CLE: { lat: 41.5061, lon: -81.6995 },
-  // FirstEnergy Stadium
-  PIT: { lat: 40.4468, lon: -80.0158 },
-  // Acrisure Stadium
-  HOU: { lat: 29.6847, lon: -95.4107 },
-  // NRG Stadium
-  IND: { lat: 39.7601, lon: -86.1639 },
-  // Lucas Oil Stadium
-  JAX: { lat: 30.3239, lon: -81.6372 },
-  // TIAA Bank Field
-  TEN: { lat: 36.1663, lon: -86.7714 },
-  // Nissan Stadium
-  DEN: { lat: 39.7439, lon: -105.0201 },
-  // Empower Field at Mile High
-  KC: { lat: 39.049, lon: -94.4839 },
-  // Arrowhead Stadium
-  LV: { lat: 36.0908, lon: -115.1836 },
-  // Allegiant Stadium
-  LAC: { lat: 33.9533, lon: -118.3389 },
-  // SoFi Stadium
-  // NFC Teams
-  DAL: { lat: 32.7473, lon: -97.0945 },
-  // AT&T Stadium
-  NYG: { lat: 40.8136, lon: -74.0744 },
-  // MetLife Stadium
-  PHI: { lat: 39.9008, lon: -75.1674 },
-  // Lincoln Financial Field
-  WAS: { lat: 38.9076, lon: -76.8644 },
-  // FedExField
-  CHI: { lat: 41.8623, lon: -87.6166 },
-  // Soldier Field
-  DET: { lat: 42.34, lon: -83.0456 },
-  // Ford Field
-  GB: { lat: 44.5013, lon: -88.0622 },
-  // Lambeau Field
-  MIN: { lat: 44.974, lon: -93.2583 },
-  // U.S. Bank Stadium
-  ATL: { lat: 33.7553, lon: -84.4006 },
-  // Mercedes-Benz Stadium
-  CAR: { lat: 35.2253, lon: -80.8431 },
-  // Bank of America Stadium
-  NO: { lat: 29.9511, lon: -90.0815 },
-  // Caesars Superdome
-  TB: { lat: 27.9761, lon: -82.5033 },
-  // Raymond James Stadium
-  ARI: { lat: 33.5276, lon: -112.2626 },
-  // State Farm Stadium
-  LAR: { lat: 33.9533, lon: -118.3389 },
-  // SoFi Stadium
-  SF: { lat: 37.403, lon: -121.97 },
-  // Levi's Stadium
-  SEA: { lat: 47.5952, lon: -122.3316 }
-  // Lumen Field
-};
-
-// src/utils/matchups.ts
-async function generatePlayerMatchupsForWeek(db, week) {
-  console.log(`Generating player matchups for week ${week}...`);
-  console.log(`Fetching schedule for week ${week}...`);
-  let schedule;
-  try {
-    console.log(`Executing query: SELECT * FROM nfl_schedule WHERE week = ${week}`);
-    const stmt = db.prepare(`
-      SELECT * FROM nfl_schedule WHERE week = ?
-    `);
-    const result = await stmt.bind(week).all();
-    schedule = result.results || result;
-    console.log(`Found ${schedule.length} games for week ${week}`);
-  } catch (error) {
-    console.error("Error fetching schedule:", error);
-    throw error;
-  }
-  console.log("Fetching players with team information...");
-  let players;
-  try {
-    const playersStmt = db.prepare(`
-      SELECT * FROM players WHERE team IS NOT NULL AND team != ''
-    `);
-    const playersResult = await playersStmt.all();
-    players = playersResult.results || playersResult;
-    console.log(`Found ${players.length} players with team information`);
-  } catch (error) {
-    console.error("Error fetching players:", error);
-    throw error;
-  }
-  console.log(`Found ${schedule.length} games and ${players.length} players for week ${week}`);
-  const game = schedule[0];
-  if (!game) {
-    console.log("No games found for this week");
-    return;
-  }
-  const homeTeam = game.home_team;
-  const awayTeam = game.away_team;
-  const gameId = game.game_id;
-  console.log(`Processing game: ${awayTeam} @ ${homeTeam} (game_id: ${gameId})`);
-  const homePlayers = players.filter((p) => p.team === homeTeam);
-  const awayPlayers = players.filter((p) => p.team === awayTeam);
-  console.log(`Found ${homePlayers.length} home players and ${awayPlayers.length} away players`);
-  const allPlayers = [...homePlayers, ...awayPlayers];
-  if (allPlayers.length === 0) {
-    console.log("No players found for this game");
-    return;
-  }
-  const player = allPlayers[0];
-  const isHome = player.team === homeTeam;
-  const opponentTeam = isHome ? awayTeam : homeTeam;
-  let restDays = null;
-  let defenseRank = null;
-  try {
-    console.log(`Inserting matchup for player ${player.sleeper_id}`);
-    const insertStmt = db.prepare(`
-      INSERT OR REPLACE INTO player_matchups (
-        player_id, week, game_id, opponent_team, is_home
-      ) VALUES (?, ?, ?, ?, ?)
-    `);
-    await insertStmt.bind(
-      player.sleeper_id,
-      week,
-      gameId,
-      opponentTeam,
-      isHome ? 1 : 0
-    ).run();
-    console.log(`Successfully inserted matchup for player ${player.sleeper_id}`);
-  } catch (error) {
-    console.error(`Error inserting matchup for player ${player.sleeper_id}:`, error);
-  }
-  console.log(`Completed generating matchups for week ${week}`);
-}
-__name(generatePlayerMatchupsForWeek, "generatePlayerMatchupsForWeek");
-async function enrichWeatherForGame(db, game) {
-  const { lat, lon } = stadiumCoordinates[game.home_team] || {};
-  if (!lat || !lon) {
-    console.log(`No coordinates found for ${game.home_team}`);
-    return;
-  }
-  try {
-    const pointRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, {
-      headers: { "User-Agent": "FantasyCommandCenter (fantasy-command-center@example.com)" }
-    });
-    if (!pointRes.ok) {
-      console.log(`Failed to get weather points for ${game.home_team}: ${pointRes.status}`);
-      return;
-    }
-    const pointData = await pointRes.json();
-    const forecastUrl = pointData.properties?.forecast;
-    if (!forecastUrl) {
-      console.log(`No forecast URL found for ${game.home_team}`);
-      return;
-    }
-    const forecastRes = await fetch(forecastUrl, {
-      headers: { "User-Agent": "FantasyCommandCenter" }
-    });
-    if (!forecastRes.ok) {
-      console.log(`Failed to get forecast for ${game.home_team}: ${forecastRes.status}`);
-      return;
-    }
-    const forecastData = await forecastRes.json();
-    const periods = forecastData.properties?.periods;
-    if (!periods || periods.length === 0) {
-      console.log(`No forecast periods found for ${game.home_team}`);
-      return;
-    }
-    const gameDate = new Date(game.game_date).toDateString();
-    const matchingForecast = periods.find(
-      (p) => new Date(p.startTime).toDateString() === gameDate
-    );
-    if (!matchingForecast) {
-      console.log(`No matching forecast found for game date ${gameDate}`);
-      return;
-    }
-    const temp = matchingForecast.temperature;
-    const tempLow = temp < 60 ? temp : null;
-    const tempHigh = temp > 60 ? temp : null;
-    await db.prepare(`
-      UPDATE player_matchups
-      SET
-        weather_forecast = ?,
-        temperature_low = ?,
-        temperature_high = ?,
-        precipitation_chance = ?,
-        wind_speed = ?
-      WHERE game_id = ?
-    `).run(
-      matchingForecast.shortForecast,
-      tempLow,
-      tempHigh,
-      matchingForecast.probabilityOfPrecipitation?.value || null,
-      matchingForecast.windSpeed || null,
-      game.game_id
-    );
-    console.log(`Updated weather for ${game.home_team} vs ${game.away_team}: ${matchingForecast.shortForecast}`);
-  } catch (error) {
-    console.error(`Error enriching weather for ${game.home_team}:`, error);
-  }
-}
-__name(enrichWeatherForGame, "enrichWeatherForGame");
-
 // src/handlers/players.ts
+init_matchups();
 var PlayersHandler = class {
   db;
   env;
@@ -1894,17 +2184,8 @@ var PlayersHandler = class {
       }
       try {
         console.log("Testing database connection...");
-        const testQuery = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule").first();
+        const testQuery = await this.env.DB.prepare("SELECT 1 as test").first();
         console.log("Database connection test successful:", testQuery);
-        console.log("Testing players query...");
-        const playersQuery = await this.db.db.prepare("SELECT COUNT(*) as count FROM players WHERE team IS NOT NULL AND team != ''").first();
-        console.log("Players query test successful:", playersQuery);
-        console.log("Testing schedule query without parameter...");
-        const scheduleQueryNoParam = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule").first();
-        console.log("Schedule query without parameter test successful:", scheduleQueryNoParam);
-        console.log("Testing schedule query with hardcoded parameter...");
-        const scheduleQueryHardcoded = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule WHERE week = 1").first();
-        console.log("Schedule query with hardcoded parameter test successful:", scheduleQueryHardcoded);
         console.log("All database tests passed!");
       } catch (error) {
         console.error("Database connection test failed:", error);
@@ -1917,19 +2198,96 @@ var PlayersHandler = class {
         });
       }
       console.log("Calling generatePlayerMatchupsForWeek...");
-      await generatePlayerMatchupsForWeek(this.db.db, weekNum);
-      console.log("generatePlayerMatchupsForWeek completed");
-      if (enrichWeather) {
-        const games = await this.db.db.prepare(`
-          SELECT * FROM nfl_schedule WHERE week = ?
-        `).all(weekNum);
-        for (const game of games) {
-          await enrichWeatherForGame(this.db.db, game);
+      console.log("Testing utility function database binding...");
+      const testStmt = this.env.DB.prepare(`
+        SELECT * FROM nfl_schedule WHERE week = ?
+      `);
+      const testResult = await testStmt.bind(weekNum).all();
+      const testSchedule = testResult.results || testResult;
+      console.log(`Test query found ${testSchedule.length} games for week ${weekNum}`);
+      console.log("Testing utility function insert...");
+      const testPlayer = await this.env.DB.prepare(`
+        SELECT * FROM players WHERE team IS NOT NULL AND team != '' LIMIT 1
+      `).first();
+      if (testPlayer) {
+        const insertStmt = this.env.DB.prepare(`
+          INSERT OR REPLACE INTO player_matchups (
+            player_id, week, game_id, opponent_team, is_home
+          ) VALUES (?, ?, ?, ?, ?)
+        `);
+        await insertStmt.bind(
+          testPlayer.sleeper_id,
+          weekNum,
+          "test-game-utility",
+          "TEST",
+          1
+        ).run();
+        console.log("Utility function insert test successful");
+      }
+      console.log("Generating matchups directly in handler...");
+      console.log(`Fetching schedule for week ${weekNum}...`);
+      const stmt = this.env.DB.prepare(`
+        SELECT * FROM nfl_schedule WHERE week = ?
+      `);
+      const result = await stmt.bind(weekNum).all();
+      const schedule = result.results || result;
+      console.log(`Found ${schedule.length} games for week ${weekNum}`);
+      console.log("Fetching players with team information...");
+      const playersStmt = this.env.DB.prepare(`
+        SELECT * FROM players WHERE team IS NOT NULL AND team != ''
+      `);
+      const playersResult = await playersStmt.all();
+      const players = playersResult.results || playersResult;
+      console.log(`Found ${players.length} players with team information`);
+      const gamesToProcess = schedule.slice(0, 2);
+      console.log(`Processing ${gamesToProcess.length} games out of ${schedule.length} total games`);
+      for (const game of gamesToProcess) {
+        const homeTeam = game.home_team;
+        const awayTeam = game.away_team;
+        const gameId = game.game_id;
+        console.log(`Processing game: ${awayTeam} @ ${homeTeam} (game_id: ${gameId})`);
+        const homePlayers = players.filter((p) => p.team === homeTeam);
+        const awayPlayers = players.filter((p) => p.team === awayTeam);
+        console.log(`Found ${homePlayers.length} home players and ${awayPlayers.length} away players`);
+        const allPlayers = [...homePlayers.slice(0, 5), ...awayPlayers.slice(0, 5)];
+        if (allPlayers.length === 0) {
+          console.log("No players found for this game");
+          continue;
+        }
+        for (const player of allPlayers) {
+          const isHome = player.team === homeTeam;
+          const opponentTeam = isHome ? awayTeam : homeTeam;
+          try {
+            console.log(`Inserting matchup for player ${player.sleeper_id}`);
+            const insertQuery = `
+              INSERT OR REPLACE INTO player_matchups (
+                player_id, week, game_id, opponent_team, is_home
+              ) VALUES (${player.sleeper_id}, ${weekNum}, '${gameId}', '${opponentTeam}', ${isHome ? 1 : 0})
+            `;
+            console.log("Insert query:", insertQuery);
+            await this.env.DB.prepare(insertQuery).run();
+            console.log(`Successfully inserted matchup for player ${player.sleeper_id}`);
+          } catch (error) {
+            console.error(`Error inserting matchup for player ${player.sleeper_id}:`, error);
+          }
         }
       }
-      const matchupCount = await this.db.db.prepare(`
+      console.log("Matchup generation completed");
+      console.log("Syncing defense strength...");
+      await syncDefenseStrength(this.env.DB);
+      if (enrichWeather) {
+        console.log("Enriching weather data...");
+        const games = await this.env.DB.prepare(`
+          SELECT * FROM nfl_schedule WHERE week = ?
+        `).bind(weekNum).all();
+        const gamesResult = games.results || games;
+        for (const game of gamesResult) {
+          await enrichWeatherForGame(this.env.DB, game);
+        }
+      }
+      const matchupCount = await this.env.DB.prepare(`
         SELECT COUNT(*) as count FROM player_matchups WHERE week = ?
-      `).first(weekNum);
+      `).bind(weekNum).first();
       return new Response(JSON.stringify({
         success: true,
         message: `Synced matchups for week ${weekNum}`,
@@ -1984,6 +2342,23 @@ var PlayersHandler = class {
       const playersResult = await playersStmt.all();
       const players = playersResult.results || playersResult;
       console.log(`Found ${players.length} players with team information`);
+      console.log("Testing utility function insert...");
+      const testPlayer = players[0];
+      if (testPlayer) {
+        const insertStmt2 = this.db.db.prepare(`
+          INSERT OR REPLACE INTO player_matchups (
+            player_id, week, game_id, opponent_team, is_home
+          ) VALUES (?, ?, ?, ?, ?)
+        `);
+        await insertStmt2.bind(
+          testPlayer.sleeper_id,
+          week,
+          "test-game-2",
+          "TEST2",
+          1
+        ).run();
+        console.log("Utility function insert test successful");
+      }
       return new Response(JSON.stringify({
         success: true,
         message: "Database tests passed",
@@ -2003,6 +2378,35 @@ var PlayersHandler = class {
       return new Response(JSON.stringify({
         success: false,
         error: "Database test failed: " + (error instanceof Error ? error.message : "Unknown error")
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
+  async handleTestMatchupsDB(request) {
+    try {
+      console.log("Testing matchups database connection...");
+      const testQuery = await this.env.DB.prepare("SELECT 1 as test").first();
+      console.log("Test 1 successful:", testQuery);
+      const countQuery = await this.env.DB.prepare("SELECT COUNT(*) as count FROM nfl_schedule").first();
+      console.log("Test 2 successful:", countQuery);
+      console.log("All matchups database tests passed!");
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Matchups database tests passed",
+        data: {
+          test: testQuery,
+          count: countQuery
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Matchups database test failed:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Matchups database test failed: " + (error instanceof Error ? error.message : "Unknown error")
       }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
@@ -2035,7 +2439,8 @@ var PlayersHandler = class {
         params.push(team);
       }
       query += " ORDER BY pm.week, p.name";
-      const matchups = await this.db.db.prepare(query).all(...params);
+      const matchupsResult = await this.env.DB.prepare(query).bind(...params).all();
+      const matchups = matchupsResult.results || matchupsResult;
       return new Response(JSON.stringify({
         success: true,
         data: {
@@ -2056,10 +2461,132 @@ var PlayersHandler = class {
       });
     }
   }
+  async handleSyncWeather(request) {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get("week");
+      if (!week) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Week parameter is required"
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      const weekNum = parseInt(week);
+      if (isNaN(weekNum) || weekNum < 1 || weekNum > 18) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Week must be between 1 and 18"
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      console.log(`Starting weather sync for week ${weekNum}...`);
+      const { enrichWeatherForWeek: enrichWeatherForWeek2 } = await Promise.resolve().then(() => (init_matchups(), matchups_exports));
+      await enrichWeatherForWeek2(this.env.DB, weekNum);
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Weather data synced for week ${weekNum}`,
+        data: {
+          week: weekNum,
+          synced_at: (/* @__PURE__ */ new Date()).toISOString()
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Weather sync error:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
+  async handleSyncDefenseStrength(request) {
+    try {
+      console.log("Starting defense strength sync...");
+      const { syncDefenseStrength: syncDefenseStrength2 } = await Promise.resolve().then(() => (init_matchups(), matchups_exports));
+      await syncDefenseStrength2(this.env.DB);
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Defense strength data synced",
+        data: {
+          synced_at: (/* @__PURE__ */ new Date()).toISOString()
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Defense strength sync error:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
+  async handleUpdateMatchupsWithDefense(request) {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get("week");
+      if (!week) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Week parameter is required"
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      const weekNum = parseInt(week);
+      if (isNaN(weekNum) || weekNum < 1 || weekNum > 18) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Week must be between 1 and 18"
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      console.log(`Updating matchups with defense strength for week ${weekNum}...`);
+      const { updateMatchupsWithDefenseStrength: updateMatchupsWithDefenseStrength2 } = await Promise.resolve().then(() => (init_matchups(), matchups_exports));
+      await updateMatchupsWithDefenseStrength2(this.env.DB, weekNum);
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Matchups updated with defense strength for week ${weekNum}`,
+        data: {
+          week: weekNum,
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Update matchups with defense error:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
 };
 __name(PlayersHandler, "PlayersHandler");
 
 // src/handlers/alerts.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var AlertsHandler = class {
   db;
   constructor(db) {
@@ -2179,6 +2706,9 @@ var AlertsHandler = class {
 __name(AlertsHandler, "AlertsHandler");
 
 // src/handlers/team.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var TeamHandler = class {
   db;
   constructor(db) {
@@ -2362,9 +2892,37 @@ var src_default = {
             response = new Response("Method not allowed", { status: 405 });
           }
           break;
+        case "/sync/weather":
+          if (request.method === "POST") {
+            response = await playersHandler.handleSyncWeather(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
+        case "/sync/defense-strength":
+          if (request.method === "POST") {
+            response = await playersHandler.handleSyncDefenseStrength(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
+        case "/sync/matchups-defense":
+          if (request.method === "POST") {
+            response = await playersHandler.handleUpdateMatchupsWithDefense(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
         case "/test/database":
           if (request.method === "GET") {
             response = await playersHandler.handleTestDatabase(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
+        case "/test/matchups-db":
+          if (request.method === "GET") {
+            response = await playersHandler.handleTestMatchupsDB(request);
           } else {
             response = new Response("Method not allowed", { status: 405 });
           }
@@ -2504,6 +3062,9 @@ var src_default = {
 };
 
 // ../../node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var drainBody = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
   try {
     return await middlewareCtx.next(request, env);
@@ -2522,6 +3083,9 @@ var drainBody = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 var middleware_ensure_req_body_drained_default = drainBody;
 
 // ../../node_modules/wrangler/templates/middleware/middleware-miniflare3-json-error.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 function reduceError(e) {
   return {
     name: e?.name,
@@ -2552,6 +3116,9 @@ var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
 var middleware_insertion_facade_default = src_default;
 
 // ../../node_modules/wrangler/templates/middleware/common.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
 var __facade_middleware__ = [];
 function __facade_register__(...args) {
   __facade_middleware__.push(...args.flat());

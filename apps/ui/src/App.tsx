@@ -5,6 +5,7 @@ import { League } from './pages/League';
 import { ResearchPlayers } from './pages/ResearchPlayers';
 import { LoadMyTeam } from './pages/LoadMyTeam';
 import { NFLSchedule } from './pages/NFLSchedule';
+import PlayerMatchups from './pages/PlayerMatchups';
 import { Layout } from './components/Layout';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
             <Route path="/team" element={<LoadMyTeam />} />
             <Route path="/settings" element={<League />} />
             <Route path="/home" element={<Home />} />
+            <Route path="/matchups" element={<PlayerMatchups />} />
           </Routes>
         </Layout>
       </div>
