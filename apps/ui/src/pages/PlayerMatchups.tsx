@@ -41,7 +41,7 @@ const PlayerMatchups: React.FC = () => {
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  const { apiCall } = useApi();
+  const { get, post } = useApi();
 
   const fetchMatchups = async () => {
     setLoading(true);
@@ -52,9 +52,9 @@ const PlayerMatchups: React.FC = () => {
       if (selectedWeek) params.append('week', selectedWeek.toString());
       if (selectedTeam) params.append('team', selectedTeam);
       
-      const response = await apiCall<MatchupsResponse>(`/matchups?${params.toString()}`);
+      const response = await get<MatchupsResponse>(`/matchups?${params.toString()}`);
       
-      if (response.success) {
+      if (response && response.success) {
         setMatchups(response.data.matchups);
       } else {
         setError('Failed to fetch matchups');
@@ -71,11 +71,9 @@ const PlayerMatchups: React.FC = () => {
     setSyncError(null);
     
     try {
-      const response = await apiCall(`/sync/matchups?week=${selectedWeek}`, {
-        method: 'POST'
-      });
+      const response = await post(`/sync/matchups?week=${selectedWeek}`, {});
       
-      if (response.success) {
+      if (response && response.success) {
         await fetchMatchups(); // Refresh the data
       } else {
         setSyncError('Failed to sync matchups');
@@ -92,11 +90,9 @@ const PlayerMatchups: React.FC = () => {
     setSyncError(null);
     
     try {
-      const response = await apiCall(`/sync/weather?week=${selectedWeek}`, {
-        method: 'POST'
-      });
+      const response = await post(`/sync/weather?week=${selectedWeek}`, {});
       
-      if (response.success) {
+      if (response && response.success) {
         await fetchMatchups(); // Refresh the data
       } else {
         setSyncError('Failed to sync weather');
@@ -113,11 +109,9 @@ const PlayerMatchups: React.FC = () => {
     setSyncError(null);
     
     try {
-      const response = await apiCall('/sync/defense-strength', {
-        method: 'POST'
-      });
+      const response = await post('/sync/defense-strength', {});
       
-      if (response.success) {
+      if (response && response.success) {
         await fetchMatchups(); // Refresh the data
       } else {
         setSyncError('Failed to sync defense strength');
@@ -134,11 +128,9 @@ const PlayerMatchups: React.FC = () => {
     setSyncError(null);
     
     try {
-      const response = await apiCall(`/sync/matchups-defense?week=${selectedWeek}`, {
-        method: 'POST'
-      });
+      const response = await post(`/sync/matchups-defense?week=${selectedWeek}`, {});
       
-      if (response.success) {
+      if (response && response.success) {
         await fetchMatchups(); // Refresh the data
       } else {
         setSyncError('Failed to update matchups with defense');
