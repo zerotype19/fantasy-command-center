@@ -99,8 +99,12 @@ export function normalizeTeamName(teamName: string): string {
   return teamName; // Return original if no match found
 }
 
-export function generateGameId(gameDate: string, homeTeam: string, awayTeam: string): string {
-  // Format: YYYY-MM-DD-HOME-AWAY
+export function generateGameId(gameDate: string, homeTeam: string, awayTeam: string, week?: number): string {
+  // Format: YYYY-MM-DD-HOME-AWAY-WEEK (if week provided)
+  if (week) {
+    return `${gameDate}-${homeTeam}-${awayTeam}-W${week}`;
+  }
+  // Format: YYYY-MM-DD-HOME-AWAY (fallback)
   return `${gameDate}-${homeTeam}-${awayTeam}`;
 }
 
@@ -123,162 +127,142 @@ export async function scrapeNFLSchedule(): Promise<NFLGame[]> {
 }
 
 function getTestScheduleData(): NFLGame[] {
-  // Comprehensive test data for 2025 season
-  const testGames: NFLGame[] = [
-    // Week 1
-    {
-      game_id: generateGameId('2025-09-04', 'KC', 'BAL'),
-      week: 1,
-      game_date: '2025-09-04',
-      kickoff_time: '20:20',
-      home_team: 'KC',
-      away_team: 'BAL',
-      location: 'Arrowhead Stadium, Kansas City, MO',
-      network: 'NBC',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-07', 'CIN', 'NE'),
-      week: 1,
-      game_date: '2025-09-07',
-      kickoff_time: '13:00',
-      home_team: 'CIN',
-      away_team: 'NE',
-      location: 'Paycor Stadium, Cincinnati, OH',
-      network: 'CBS',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-07', 'BUF', 'ARI'),
-      week: 1,
-      game_date: '2025-09-07',
-      kickoff_time: '13:00',
-      home_team: 'BUF',
-      away_team: 'ARI',
-      location: 'Highmark Stadium, Orchard Park, NY',
-      network: 'FOX',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-07', 'DAL', 'CLE'),
-      week: 1,
-      game_date: '2025-09-07',
-      kickoff_time: '16:25',
-      home_team: 'DAL',
-      away_team: 'CLE',
-      location: 'AT&T Stadium, Arlington, TX',
-      network: 'FOX',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-07', 'SF', 'NYJ'),
-      week: 1,
-      game_date: '2025-09-07',
-      kickoff_time: '16:25',
-      home_team: 'SF',
-      away_team: 'NYJ',
-      location: 'Levi\'s Stadium, Santa Clara, CA',
-      network: 'CBS',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-08', 'GB', 'PHI'),
-      week: 1,
-      game_date: '2025-09-08',
-      kickoff_time: '20:20',
-      home_team: 'GB',
-      away_team: 'PHI',
-      location: 'Lambeau Field, Green Bay, WI',
-      network: 'ESPN',
-      game_type: 'Regular'
-    },
-    
-    // Week 2
-    {
-      game_id: generateGameId('2025-09-11', 'BAL', 'CIN'),
-      week: 2,
-      game_date: '2025-09-11',
-      kickoff_time: '20:15',
-      home_team: 'BAL',
-      away_team: 'CIN',
-      location: 'M&T Bank Stadium, Baltimore, MD',
-      network: 'Prime Video',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-14', 'KC', 'BUF'),
-      week: 2,
-      game_date: '2025-09-14',
-      kickoff_time: '16:25',
-      home_team: 'KC',
-      away_team: 'BUF',
-      location: 'Arrowhead Stadium, Kansas City, MO',
-      network: 'CBS',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-14', 'DAL', 'NYG'),
-      week: 2,
-      game_date: '2025-09-14',
-      kickoff_time: '13:00',
-      home_team: 'DAL',
-      away_team: 'NYG',
-      location: 'AT&T Stadium, Arlington, TX',
-      network: 'FOX',
-      game_type: 'Regular'
-    },
-    
-    // Week 3
-    {
-      game_id: generateGameId('2025-09-18', 'NE', 'NYJ'),
-      week: 3,
-      game_date: '2025-09-18',
-      kickoff_time: '20:15',
-      home_team: 'NE',
-      away_team: 'NYJ',
-      location: 'Gillette Stadium, Foxborough, MA',
-      network: 'Prime Video',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-21', 'BAL', 'KC'),
-      week: 3,
-      game_date: '2025-09-21',
-      kickoff_time: '20:20',
-      home_team: 'BAL',
-      away_team: 'KC',
-      location: 'M&T Bank Stadium, Baltimore, MD',
-      network: 'NBC',
-      game_type: 'Regular'
-    },
-    
-    // Week 4
-    {
-      game_id: generateGameId('2025-09-25', 'CIN', 'BUF'),
-      week: 4,
-      game_date: '2025-09-25',
-      kickoff_time: '20:15',
-      home_team: 'CIN',
-      away_team: 'BUF',
-      location: 'Paycor Stadium, Cincinnati, OH',
-      network: 'Prime Video',
-      game_type: 'Regular'
-    },
-    {
-      game_id: generateGameId('2025-09-28', 'KC', 'DAL'),
-      week: 4,
-      game_date: '2025-09-28',
-      kickoff_time: '16:25',
-      home_team: 'KC',
-      away_team: 'DAL',
-      location: 'Arrowhead Stadium, Kansas City, MO',
-      network: 'FOX',
-      game_type: 'Regular'
-    }
+  // Generate complete 18-week NFL schedule programmatically
+  const testGames: NFLGame[] = [];
+  
+  // All 32 NFL teams
+  const teams = [
+    'ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE',
+    'DAL', 'DEN', 'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC',
+    'LAC', 'LAR', 'LV', 'MIA', 'MIN', 'NE', 'NO', 'NYG',
+    'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB', 'TEN', 'WAS'
   ];
   
-  console.log(`Generated ${testGames.length} test NFL games`);
+  // Stadium locations for each team
+  const stadiums: { [key: string]: string } = {
+    'ARI': 'State Farm Stadium, Glendale, AZ',
+    'ATL': 'Mercedes-Benz Stadium, Atlanta, GA',
+    'BAL': 'M&T Bank Stadium, Baltimore, MD',
+    'BUF': 'Highmark Stadium, Orchard Park, NY',
+    'CAR': 'Bank of America Stadium, Charlotte, NC',
+    'CHI': 'Soldier Field, Chicago, IL',
+    'CIN': 'Paycor Stadium, Cincinnati, OH',
+    'CLE': 'FirstEnergy Stadium, Cleveland, OH',
+    'DAL': 'AT&T Stadium, Arlington, TX',
+    'DEN': 'Empower Field at Mile High, Denver, CO',
+    'DET': 'Ford Field, Detroit, MI',
+    'GB': 'Lambeau Field, Green Bay, WI',
+    'HOU': 'NRG Stadium, Houston, TX',
+    'IND': 'Lucas Oil Stadium, Indianapolis, IN',
+    'JAX': 'TIAA Bank Field, Jacksonville, FL',
+    'KC': 'Arrowhead Stadium, Kansas City, MO',
+    'LAC': 'SoFi Stadium, Inglewood, CA',
+    'LAR': 'SoFi Stadium, Inglewood, CA',
+    'LV': 'Allegiant Stadium, Las Vegas, NV',
+    'MIA': 'Hard Rock Stadium, Miami Gardens, FL',
+    'MIN': 'U.S. Bank Stadium, Minneapolis, MN',
+    'NE': 'Gillette Stadium, Foxborough, MA',
+    'NO': 'Caesars Superdome, New Orleans, LA',
+    'NYG': 'MetLife Stadium, East Rutherford, NJ',
+    'NYJ': 'MetLife Stadium, East Rutherford, NJ',
+    'PHI': 'Lincoln Financial Field, Philadelphia, PA',
+    'PIT': 'Acrisure Stadium, Pittsburgh, PA',
+    'SF': 'Levi\'s Stadium, Santa Clara, CA',
+    'SEA': 'Lumen Field, Seattle, WA',
+    'TB': 'Raymond James Stadium, Tampa, FL',
+    'TEN': 'Nissan Stadium, Nashville, TN',
+    'WAS': 'FedExField, Landover, MD'
+  };
+  
+  // Generate games for 18 weeks
+  for (let week = 1; week <= 18; week++) {
+    const weekGames = generateWeekGames(week, teams, stadiums);
+    testGames.push(...weekGames);
+  }
+  
+  console.log(`Generated ${testGames.length} complete NFL season games across 18 weeks`);
   return testGames;
+}
+
+function generateWeekGames(week: number, teams: string[], stadiums: { [key: string]: string }): NFLGame[] {
+  const games: NFLGame[] = [];
+  
+  // Calculate base date for the season (first Thursday in September)
+  const baseDate = new Date('2025-09-04'); // Thursday of Week 1
+  const weekStartDate = new Date(baseDate);
+  weekStartDate.setDate(baseDate.getDate() + (week - 1) * 7);
+  
+  // Generate exactly 16 games per week (32 teams / 2 = 16 games)
+  // Use a simple, deterministic approach that ensures unique matchups
+  const teamsCopy = [...teams];
+  
+  // Create matchups based on week number to ensure variety
+  for (let i = 0; i < 16; i++) {
+    // Use week number to create different matchups each week
+    const awayIndex = (i + week) % 32;
+    const homeIndex = (i + week + 16) % 32;
+    
+    const awayTeam = teamsCopy[awayIndex];
+    const homeTeam = teamsCopy[homeIndex];
+    
+    if (!awayTeam || !homeTeam) {
+      console.error(`Could not find teams for game ${i} in week ${week}`);
+      continue;
+    }
+    
+    // Calculate game date based on position in week
+    const gameDate = new Date(weekStartDate);
+    if (i === 0 && week === 1) {
+      // Thursday Night Football for Week 1
+      gameDate.setDate(weekStartDate.getDate() - 1); // Wednesday
+    } else if (i === 15) {
+      // Monday Night Football
+      gameDate.setDate(weekStartDate.getDate() + 3); // Monday
+    } else {
+      // Sunday games
+      gameDate.setDate(weekStartDate.getDate() + 2); // Sunday
+    }
+    
+    // Determine kickoff time and network
+    let kickoffTime: string;
+    let network: string;
+    
+    if (i === 0 && week === 1) {
+      kickoffTime = '20:20';
+      network = 'NBC';
+    } else if (i === 0) {
+      kickoffTime = '20:15';
+      network = 'Prime Video';
+    } else if (i === 15) {
+      kickoffTime = '20:20';
+      network = 'ESPN';
+    } else if (i === 14) {
+      kickoffTime = '20:20';
+      network = 'NBC';
+    } else if (i < 8) {
+      kickoffTime = '13:00';
+      network = i % 2 === 0 ? 'CBS' : 'FOX';
+    } else {
+      kickoffTime = i < 12 ? '16:05' : '16:25';
+      network = i % 2 === 0 ? 'CBS' : 'FOX';
+    }
+    
+    const gameDateStr = gameDate.toISOString().split('T')[0];
+    
+    games.push({
+      game_id: generateGameId(gameDateStr, homeTeam, awayTeam, week),
+      week,
+      game_date: gameDateStr,
+      kickoff_time: kickoffTime,
+      home_team: homeTeam,
+      away_team: awayTeam,
+      location: stadiums[homeTeam],
+      network,
+      game_type: 'Regular'
+    });
+  }
+  
+  return games;
 }
 
 // Actual web scraping implementation

@@ -24,6 +24,7 @@ import {
   matchFantasyProsToPlayerUpdates
 } from '../services/fantasyPros';
 import { scrapeNFLSchedule } from '../services/nflSchedule';
+import { generatePlayerMatchupsForWeek, enrichWeatherForGame, syncDefenseStrength } from '../utils/matchups';
 import { upsertFantasyProsData, getPlayersWithFantasyData, updatePlayerFantasyProsData, upsertNFLSchedule, getNFLSchedule, getNFLGamesByWeek, getNFLGamesByTeam } from '../utils/db';
 
 interface Env {
@@ -598,6 +599,235 @@ export class PlayersHandler {
       });
     } catch (error) {
       console.error('Get NFL schedule error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleSyncMatchups(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get('week');
+      const enrichWeather = url.searchParams.get('weather') === 'true';
+      
+      if (!week) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Week parameter is required'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const weekNum = parseInt(week);
+      if (isNaN(weekNum) || weekNum < 1 || weekNum > 18) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Week must be between 1 and 18'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Test database connection first
+      try {
+        console.log('Testing database connection...');
+        const testQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
+        console.log('Database connection test successful:', testQuery);
+        
+        console.log('Testing players query...');
+        const playersQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM players WHERE team IS NOT NULL AND team != \'\'').first();
+        console.log('Players query test successful:', playersQuery);
+        
+        console.log('Testing schedule query without parameter...');
+        const scheduleQueryNoParam = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
+        console.log('Schedule query without parameter test successful:', scheduleQueryNoParam);
+        
+        console.log('Testing schedule query with hardcoded parameter...');
+        const scheduleQueryHardcoded = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule WHERE week = 1').first();
+        console.log('Schedule query with hardcoded parameter test successful:', scheduleQueryHardcoded);
+        
+        console.log('All database tests passed!');
+        
+
+        
+      } catch (error) {
+        console.error('Database connection test failed:', error);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Database connection failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Sync defense strength first (skip for now to debug)
+      // await syncDefenseStrength(this.db.db);
+
+      // Generate matchups for the week
+      console.log('Calling generatePlayerMatchupsForWeek...');
+      await generatePlayerMatchupsForWeek(this.db.db, weekNum);
+      console.log('generatePlayerMatchupsForWeek completed');
+
+      // Enrich with weather data if requested
+      if (enrichWeather) {
+        const games = await this.db.db.prepare(`
+          SELECT * FROM nfl_schedule WHERE week = ?
+        `).all(weekNum);
+
+        for (const game of games) {
+          await enrichWeatherForGame(this.db.db, game);
+        }
+      }
+
+      // Get matchup count
+      const matchupCount = await this.db.db.prepare(`
+        SELECT COUNT(*) as count FROM player_matchups WHERE week = ?
+      `).first(weekNum);
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Synced matchups for week ${weekNum}`,
+        data: {
+          week: weekNum,
+          matchups_count: matchupCount.count,
+          weather_enriched: enrichWeather
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Sync matchups error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestDatabase(request: Request): Promise<Response> {
+    try {
+      console.log('Testing database connection...');
+      const testQuery = await this.db.db.prepare('SELECT 1 as test').first();
+      console.log('Database connection test successful:', testQuery);
+      
+      console.log('Testing nfl_schedule table...');
+      const scheduleQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
+      console.log('Schedule query test successful:', scheduleQuery);
+      
+      console.log('Testing players table...');
+      const playersQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM players').first();
+      console.log('Players query test successful:', playersQuery);
+      
+      console.log('Testing parameter binding...');
+      const paramQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule WHERE week = ?').bind(1).first();
+      console.log('Parameter query test successful:', paramQuery);
+      
+      console.log('Testing insert...');
+      const insertStmt = this.db.db.prepare('INSERT OR REPLACE INTO player_matchups (player_id, week, game_id, opponent_team, is_home) VALUES (?, ?, ?, ?, ?)');
+      await insertStmt.bind(999999, 1, 'test-game', 'TEST', 1).run();
+      console.log('Insert test successful');
+      
+      console.log('Testing exact utility function queries...');
+      const week = 1;
+      
+      // Test the exact same queries as the utility function
+      const stmt = this.db.db.prepare(`
+        SELECT * FROM nfl_schedule WHERE week = ?
+      `);
+      const result = await stmt.bind(week).all();
+      const schedule = result.results || result;
+      console.log(`Found ${schedule.length} games for week ${week}`);
+      
+      const playersStmt = this.db.db.prepare(`
+        SELECT * FROM players WHERE team IS NOT NULL AND team != ''
+      `);
+      const playersResult = await playersStmt.all();
+      const players = playersResult.results || playersResult;
+      console.log(`Found ${players.length} players with team information`);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Database tests passed',
+        data: {
+          test: testQuery,
+          schedule_count: scheduleQuery,
+          players_count: playersQuery,
+          param_query: paramQuery,
+          utility_schedule_count: schedule.length,
+          utility_players_count: players.length
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Database test failed:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Database test failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleGetMatchups(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get('week');
+      const playerId = url.searchParams.get('player_id');
+      const team = url.searchParams.get('team');
+
+      let query = `
+        SELECT pm.*, p.name, p.team, p.position
+        FROM player_matchups pm
+        JOIN players p ON pm.player_id = p.sleeper_id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+
+      if (week) {
+        query += ' AND pm.week = ?';
+        params.push(parseInt(week));
+      }
+
+      if (playerId) {
+        query += ' AND pm.player_id = ?';
+        params.push(parseInt(playerId));
+      }
+
+      if (team) {
+        query += ' AND p.team = ?';
+        params.push(team);
+      }
+
+      query += ' ORDER BY pm.week, p.name';
+
+      const matchups = await this.db.db.prepare(query).all(...params);
+
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          matchups: matchups,
+          count: matchups.length
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Get matchups error:', error);
       return new Response(JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

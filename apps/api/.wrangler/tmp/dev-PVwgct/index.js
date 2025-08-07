@@ -977,7 +977,10 @@ function matchFantasyProsToPlayerUpdates(fantasyProsData, players) {
 __name(matchFantasyProsToPlayerUpdates, "matchFantasyProsToPlayerUpdates");
 
 // src/services/nflSchedule.ts
-function generateGameId(gameDate, homeTeam, awayTeam) {
+function generateGameId(gameDate, homeTeam, awayTeam, week) {
+  if (week) {
+    return `${gameDate}-${homeTeam}-${awayTeam}-W${week}`;
+  }
   return `${gameDate}-${homeTeam}-${awayTeam}`;
 }
 __name(generateGameId, "generateGameId");
@@ -997,159 +1000,143 @@ async function scrapeNFLSchedule() {
 }
 __name(scrapeNFLSchedule, "scrapeNFLSchedule");
 function getTestScheduleData() {
-  const testGames = [
-    // Week 1
-    {
-      game_id: generateGameId("2025-09-04", "KC", "BAL"),
-      week: 1,
-      game_date: "2025-09-04",
-      kickoff_time: "20:20",
-      home_team: "KC",
-      away_team: "BAL",
-      location: "Arrowhead Stadium, Kansas City, MO",
-      network: "NBC",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-07", "CIN", "NE"),
-      week: 1,
-      game_date: "2025-09-07",
-      kickoff_time: "13:00",
-      home_team: "CIN",
-      away_team: "NE",
-      location: "Paycor Stadium, Cincinnati, OH",
-      network: "CBS",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-07", "BUF", "ARI"),
-      week: 1,
-      game_date: "2025-09-07",
-      kickoff_time: "13:00",
-      home_team: "BUF",
-      away_team: "ARI",
-      location: "Highmark Stadium, Orchard Park, NY",
-      network: "FOX",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-07", "DAL", "CLE"),
-      week: 1,
-      game_date: "2025-09-07",
-      kickoff_time: "16:25",
-      home_team: "DAL",
-      away_team: "CLE",
-      location: "AT&T Stadium, Arlington, TX",
-      network: "FOX",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-07", "SF", "NYJ"),
-      week: 1,
-      game_date: "2025-09-07",
-      kickoff_time: "16:25",
-      home_team: "SF",
-      away_team: "NYJ",
-      location: "Levi's Stadium, Santa Clara, CA",
-      network: "CBS",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-08", "GB", "PHI"),
-      week: 1,
-      game_date: "2025-09-08",
-      kickoff_time: "20:20",
-      home_team: "GB",
-      away_team: "PHI",
-      location: "Lambeau Field, Green Bay, WI",
-      network: "ESPN",
-      game_type: "Regular"
-    },
-    // Week 2
-    {
-      game_id: generateGameId("2025-09-11", "BAL", "CIN"),
-      week: 2,
-      game_date: "2025-09-11",
-      kickoff_time: "20:15",
-      home_team: "BAL",
-      away_team: "CIN",
-      location: "M&T Bank Stadium, Baltimore, MD",
-      network: "Prime Video",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-14", "KC", "BUF"),
-      week: 2,
-      game_date: "2025-09-14",
-      kickoff_time: "16:25",
-      home_team: "KC",
-      away_team: "BUF",
-      location: "Arrowhead Stadium, Kansas City, MO",
-      network: "CBS",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-14", "DAL", "NYG"),
-      week: 2,
-      game_date: "2025-09-14",
-      kickoff_time: "13:00",
-      home_team: "DAL",
-      away_team: "NYG",
-      location: "AT&T Stadium, Arlington, TX",
-      network: "FOX",
-      game_type: "Regular"
-    },
-    // Week 3
-    {
-      game_id: generateGameId("2025-09-18", "NE", "NYJ"),
-      week: 3,
-      game_date: "2025-09-18",
-      kickoff_time: "20:15",
-      home_team: "NE",
-      away_team: "NYJ",
-      location: "Gillette Stadium, Foxborough, MA",
-      network: "Prime Video",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-21", "BAL", "KC"),
-      week: 3,
-      game_date: "2025-09-21",
-      kickoff_time: "20:20",
-      home_team: "BAL",
-      away_team: "KC",
-      location: "M&T Bank Stadium, Baltimore, MD",
-      network: "NBC",
-      game_type: "Regular"
-    },
-    // Week 4
-    {
-      game_id: generateGameId("2025-09-25", "CIN", "BUF"),
-      week: 4,
-      game_date: "2025-09-25",
-      kickoff_time: "20:15",
-      home_team: "CIN",
-      away_team: "BUF",
-      location: "Paycor Stadium, Cincinnati, OH",
-      network: "Prime Video",
-      game_type: "Regular"
-    },
-    {
-      game_id: generateGameId("2025-09-28", "KC", "DAL"),
-      week: 4,
-      game_date: "2025-09-28",
-      kickoff_time: "16:25",
-      home_team: "KC",
-      away_team: "DAL",
-      location: "Arrowhead Stadium, Kansas City, MO",
-      network: "FOX",
-      game_type: "Regular"
-    }
+  const testGames = [];
+  const teams = [
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAX",
+    "KC",
+    "LAC",
+    "LAR",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SF",
+    "SEA",
+    "TB",
+    "TEN",
+    "WAS"
   ];
-  console.log(`Generated ${testGames.length} test NFL games`);
+  const stadiums = {
+    "ARI": "State Farm Stadium, Glendale, AZ",
+    "ATL": "Mercedes-Benz Stadium, Atlanta, GA",
+    "BAL": "M&T Bank Stadium, Baltimore, MD",
+    "BUF": "Highmark Stadium, Orchard Park, NY",
+    "CAR": "Bank of America Stadium, Charlotte, NC",
+    "CHI": "Soldier Field, Chicago, IL",
+    "CIN": "Paycor Stadium, Cincinnati, OH",
+    "CLE": "FirstEnergy Stadium, Cleveland, OH",
+    "DAL": "AT&T Stadium, Arlington, TX",
+    "DEN": "Empower Field at Mile High, Denver, CO",
+    "DET": "Ford Field, Detroit, MI",
+    "GB": "Lambeau Field, Green Bay, WI",
+    "HOU": "NRG Stadium, Houston, TX",
+    "IND": "Lucas Oil Stadium, Indianapolis, IN",
+    "JAX": "TIAA Bank Field, Jacksonville, FL",
+    "KC": "Arrowhead Stadium, Kansas City, MO",
+    "LAC": "SoFi Stadium, Inglewood, CA",
+    "LAR": "SoFi Stadium, Inglewood, CA",
+    "LV": "Allegiant Stadium, Las Vegas, NV",
+    "MIA": "Hard Rock Stadium, Miami Gardens, FL",
+    "MIN": "U.S. Bank Stadium, Minneapolis, MN",
+    "NE": "Gillette Stadium, Foxborough, MA",
+    "NO": "Caesars Superdome, New Orleans, LA",
+    "NYG": "MetLife Stadium, East Rutherford, NJ",
+    "NYJ": "MetLife Stadium, East Rutherford, NJ",
+    "PHI": "Lincoln Financial Field, Philadelphia, PA",
+    "PIT": "Acrisure Stadium, Pittsburgh, PA",
+    "SF": "Levi's Stadium, Santa Clara, CA",
+    "SEA": "Lumen Field, Seattle, WA",
+    "TB": "Raymond James Stadium, Tampa, FL",
+    "TEN": "Nissan Stadium, Nashville, TN",
+    "WAS": "FedExField, Landover, MD"
+  };
+  for (let week = 1; week <= 18; week++) {
+    const weekGames = generateWeekGames(week, teams, stadiums);
+    testGames.push(...weekGames);
+  }
+  console.log(`Generated ${testGames.length} complete NFL season games across 18 weeks`);
   return testGames;
 }
 __name(getTestScheduleData, "getTestScheduleData");
+function generateWeekGames(week, teams, stadiums) {
+  const games = [];
+  const baseDate = /* @__PURE__ */ new Date("2025-09-04");
+  const weekStartDate = new Date(baseDate);
+  weekStartDate.setDate(baseDate.getDate() + (week - 1) * 7);
+  const teamsCopy = [...teams];
+  for (let i = 0; i < 16; i++) {
+    const awayIndex = (i + week) % 32;
+    const homeIndex = (i + week + 16) % 32;
+    const awayTeam = teamsCopy[awayIndex];
+    const homeTeam = teamsCopy[homeIndex];
+    if (!awayTeam || !homeTeam) {
+      console.error(`Could not find teams for game ${i} in week ${week}`);
+      continue;
+    }
+    const gameDate = new Date(weekStartDate);
+    if (i === 0 && week === 1) {
+      gameDate.setDate(weekStartDate.getDate() - 1);
+    } else if (i === 15) {
+      gameDate.setDate(weekStartDate.getDate() + 3);
+    } else {
+      gameDate.setDate(weekStartDate.getDate() + 2);
+    }
+    let kickoffTime;
+    let network;
+    if (i === 0 && week === 1) {
+      kickoffTime = "20:20";
+      network = "NBC";
+    } else if (i === 0) {
+      kickoffTime = "20:15";
+      network = "Prime Video";
+    } else if (i === 15) {
+      kickoffTime = "20:20";
+      network = "ESPN";
+    } else if (i === 14) {
+      kickoffTime = "20:20";
+      network = "NBC";
+    } else if (i < 8) {
+      kickoffTime = "13:00";
+      network = i % 2 === 0 ? "CBS" : "FOX";
+    } else {
+      kickoffTime = i < 12 ? "16:05" : "16:25";
+      network = i % 2 === 0 ? "CBS" : "FOX";
+    }
+    const gameDateStr = gameDate.toISOString().split("T")[0];
+    games.push({
+      game_id: generateGameId(gameDateStr, homeTeam, awayTeam, week),
+      week,
+      game_date: gameDateStr,
+      kickoff_time: kickoffTime,
+      home_team: homeTeam,
+      away_team: awayTeam,
+      location: stadiums[homeTeam],
+      network,
+      game_type: "Regular"
+    });
+  }
+  return games;
+}
+__name(generateWeekGames, "generateWeekGames");
 async function scrapeNFLScheduleFromWeb() {
   try {
     console.log("Attempting to scrape NFL schedule from web...");
@@ -1193,6 +1180,218 @@ function parseNFLScheduleHTML(html) {
   }
 }
 __name(parseNFLScheduleHTML, "parseNFLScheduleHTML");
+
+// src/constants/stadiumLocations.ts
+var stadiumCoordinates = {
+  // AFC Teams
+  BUF: { lat: 42.7737, lon: -78.7869 },
+  // Highmark Stadium
+  MIA: { lat: 25.9583, lon: -80.2389 },
+  // Hard Rock Stadium
+  NE: { lat: 42.0909, lon: -71.2643 },
+  // Gillette Stadium
+  NYJ: { lat: 40.8136, lon: -74.0744 },
+  // MetLife Stadium
+  BAL: { lat: 39.2783, lon: -76.6227 },
+  // M&T Bank Stadium
+  CIN: { lat: 39.0955, lon: -84.516 },
+  // Paycor Stadium
+  CLE: { lat: 41.5061, lon: -81.6995 },
+  // FirstEnergy Stadium
+  PIT: { lat: 40.4468, lon: -80.0158 },
+  // Acrisure Stadium
+  HOU: { lat: 29.6847, lon: -95.4107 },
+  // NRG Stadium
+  IND: { lat: 39.7601, lon: -86.1639 },
+  // Lucas Oil Stadium
+  JAX: { lat: 30.3239, lon: -81.6372 },
+  // TIAA Bank Field
+  TEN: { lat: 36.1663, lon: -86.7714 },
+  // Nissan Stadium
+  DEN: { lat: 39.7439, lon: -105.0201 },
+  // Empower Field at Mile High
+  KC: { lat: 39.049, lon: -94.4839 },
+  // Arrowhead Stadium
+  LV: { lat: 36.0908, lon: -115.1836 },
+  // Allegiant Stadium
+  LAC: { lat: 33.9533, lon: -118.3389 },
+  // SoFi Stadium
+  // NFC Teams
+  DAL: { lat: 32.7473, lon: -97.0945 },
+  // AT&T Stadium
+  NYG: { lat: 40.8136, lon: -74.0744 },
+  // MetLife Stadium
+  PHI: { lat: 39.9008, lon: -75.1674 },
+  // Lincoln Financial Field
+  WAS: { lat: 38.9076, lon: -76.8644 },
+  // FedExField
+  CHI: { lat: 41.8623, lon: -87.6166 },
+  // Soldier Field
+  DET: { lat: 42.34, lon: -83.0456 },
+  // Ford Field
+  GB: { lat: 44.5013, lon: -88.0622 },
+  // Lambeau Field
+  MIN: { lat: 44.974, lon: -93.2583 },
+  // U.S. Bank Stadium
+  ATL: { lat: 33.7553, lon: -84.4006 },
+  // Mercedes-Benz Stadium
+  CAR: { lat: 35.2253, lon: -80.8431 },
+  // Bank of America Stadium
+  NO: { lat: 29.9511, lon: -90.0815 },
+  // Caesars Superdome
+  TB: { lat: 27.9761, lon: -82.5033 },
+  // Raymond James Stadium
+  ARI: { lat: 33.5276, lon: -112.2626 },
+  // State Farm Stadium
+  LAR: { lat: 33.9533, lon: -118.3389 },
+  // SoFi Stadium
+  SF: { lat: 37.403, lon: -121.97 },
+  // Levi's Stadium
+  SEA: { lat: 47.5952, lon: -122.3316 }
+  // Lumen Field
+};
+
+// src/utils/matchups.ts
+async function generatePlayerMatchupsForWeek(db, week) {
+  console.log(`Generating player matchups for week ${week}...`);
+  console.log(`Fetching schedule for week ${week}...`);
+  let schedule;
+  try {
+    console.log(`Executing query: SELECT * FROM nfl_schedule WHERE week = ${week}`);
+    const stmt = db.prepare(`
+      SELECT * FROM nfl_schedule WHERE week = ?
+    `);
+    const result = await stmt.bind(week).all();
+    schedule = result.results || result;
+    console.log(`Found ${schedule.length} games for week ${week}`);
+  } catch (error) {
+    console.error("Error fetching schedule:", error);
+    throw error;
+  }
+  console.log("Fetching players with team information...");
+  let players;
+  try {
+    const playersStmt = db.prepare(`
+      SELECT * FROM players WHERE team IS NOT NULL AND team != ''
+    `);
+    const playersResult = await playersStmt.all();
+    players = playersResult.results || playersResult;
+    console.log(`Found ${players.length} players with team information`);
+  } catch (error) {
+    console.error("Error fetching players:", error);
+    throw error;
+  }
+  console.log(`Found ${schedule.length} games and ${players.length} players for week ${week}`);
+  const game = schedule[0];
+  if (!game) {
+    console.log("No games found for this week");
+    return;
+  }
+  const homeTeam = game.home_team;
+  const awayTeam = game.away_team;
+  const gameId = game.game_id;
+  console.log(`Processing game: ${awayTeam} @ ${homeTeam} (game_id: ${gameId})`);
+  const homePlayers = players.filter((p) => p.team === homeTeam);
+  const awayPlayers = players.filter((p) => p.team === awayTeam);
+  console.log(`Found ${homePlayers.length} home players and ${awayPlayers.length} away players`);
+  const allPlayers = [...homePlayers, ...awayPlayers];
+  if (allPlayers.length === 0) {
+    console.log("No players found for this game");
+    return;
+  }
+  const player = allPlayers[0];
+  const isHome = player.team === homeTeam;
+  const opponentTeam = isHome ? awayTeam : homeTeam;
+  let restDays = null;
+  let defenseRank = null;
+  try {
+    console.log(`Inserting matchup for player ${player.sleeper_id}`);
+    const insertStmt = db.prepare(`
+      INSERT OR REPLACE INTO player_matchups (
+        player_id, week, game_id, opponent_team, is_home
+      ) VALUES (?, ?, ?, ?, ?)
+    `);
+    await insertStmt.bind(
+      player.sleeper_id,
+      week,
+      gameId,
+      opponentTeam,
+      isHome ? 1 : 0
+    ).run();
+    console.log(`Successfully inserted matchup for player ${player.sleeper_id}`);
+  } catch (error) {
+    console.error(`Error inserting matchup for player ${player.sleeper_id}:`, error);
+  }
+  console.log(`Completed generating matchups for week ${week}`);
+}
+__name(generatePlayerMatchupsForWeek, "generatePlayerMatchupsForWeek");
+async function enrichWeatherForGame(db, game) {
+  const { lat, lon } = stadiumCoordinates[game.home_team] || {};
+  if (!lat || !lon) {
+    console.log(`No coordinates found for ${game.home_team}`);
+    return;
+  }
+  try {
+    const pointRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, {
+      headers: { "User-Agent": "FantasyCommandCenter (fantasy-command-center@example.com)" }
+    });
+    if (!pointRes.ok) {
+      console.log(`Failed to get weather points for ${game.home_team}: ${pointRes.status}`);
+      return;
+    }
+    const pointData = await pointRes.json();
+    const forecastUrl = pointData.properties?.forecast;
+    if (!forecastUrl) {
+      console.log(`No forecast URL found for ${game.home_team}`);
+      return;
+    }
+    const forecastRes = await fetch(forecastUrl, {
+      headers: { "User-Agent": "FantasyCommandCenter" }
+    });
+    if (!forecastRes.ok) {
+      console.log(`Failed to get forecast for ${game.home_team}: ${forecastRes.status}`);
+      return;
+    }
+    const forecastData = await forecastRes.json();
+    const periods = forecastData.properties?.periods;
+    if (!periods || periods.length === 0) {
+      console.log(`No forecast periods found for ${game.home_team}`);
+      return;
+    }
+    const gameDate = new Date(game.game_date).toDateString();
+    const matchingForecast = periods.find(
+      (p) => new Date(p.startTime).toDateString() === gameDate
+    );
+    if (!matchingForecast) {
+      console.log(`No matching forecast found for game date ${gameDate}`);
+      return;
+    }
+    const temp = matchingForecast.temperature;
+    const tempLow = temp < 60 ? temp : null;
+    const tempHigh = temp > 60 ? temp : null;
+    await db.prepare(`
+      UPDATE player_matchups
+      SET
+        weather_forecast = ?,
+        temperature_low = ?,
+        temperature_high = ?,
+        precipitation_chance = ?,
+        wind_speed = ?
+      WHERE game_id = ?
+    `).run(
+      matchingForecast.shortForecast,
+      tempLow,
+      tempHigh,
+      matchingForecast.probabilityOfPrecipitation?.value || null,
+      matchingForecast.windSpeed || null,
+      game.game_id
+    );
+    console.log(`Updated weather for ${game.home_team} vs ${game.away_team}: ${matchingForecast.shortForecast}`);
+  } catch (error) {
+    console.error(`Error enriching weather for ${game.home_team}:`, error);
+  }
+}
+__name(enrichWeatherForGame, "enrichWeatherForGame");
 
 // src/handlers/players.ts
 var PlayersHandler = class {
@@ -1669,6 +1868,194 @@ var PlayersHandler = class {
       });
     }
   }
+  async handleSyncMatchups(request) {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get("week");
+      const enrichWeather = url.searchParams.get("weather") === "true";
+      if (!week) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Week parameter is required"
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      const weekNum = parseInt(week);
+      if (isNaN(weekNum) || weekNum < 1 || weekNum > 18) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Week must be between 1 and 18"
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      try {
+        console.log("Testing database connection...");
+        const testQuery = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule").first();
+        console.log("Database connection test successful:", testQuery);
+        console.log("Testing players query...");
+        const playersQuery = await this.db.db.prepare("SELECT COUNT(*) as count FROM players WHERE team IS NOT NULL AND team != ''").first();
+        console.log("Players query test successful:", playersQuery);
+        console.log("Testing schedule query without parameter...");
+        const scheduleQueryNoParam = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule").first();
+        console.log("Schedule query without parameter test successful:", scheduleQueryNoParam);
+        console.log("Testing schedule query with hardcoded parameter...");
+        const scheduleQueryHardcoded = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule WHERE week = 1").first();
+        console.log("Schedule query with hardcoded parameter test successful:", scheduleQueryHardcoded);
+        console.log("All database tests passed!");
+      } catch (error) {
+        console.error("Database connection test failed:", error);
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Database connection failed: " + (error instanceof Error ? error.message : "Unknown error")
+        }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      console.log("Calling generatePlayerMatchupsForWeek...");
+      await generatePlayerMatchupsForWeek(this.db.db, weekNum);
+      console.log("generatePlayerMatchupsForWeek completed");
+      if (enrichWeather) {
+        const games = await this.db.db.prepare(`
+          SELECT * FROM nfl_schedule WHERE week = ?
+        `).all(weekNum);
+        for (const game of games) {
+          await enrichWeatherForGame(this.db.db, game);
+        }
+      }
+      const matchupCount = await this.db.db.prepare(`
+        SELECT COUNT(*) as count FROM player_matchups WHERE week = ?
+      `).first(weekNum);
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Synced matchups for week ${weekNum}`,
+        data: {
+          week: weekNum,
+          matchups_count: matchupCount.count,
+          weather_enriched: enrichWeather
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Sync matchups error:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
+  async handleTestDatabase(request) {
+    try {
+      console.log("Testing database connection...");
+      const testQuery = await this.db.db.prepare("SELECT 1 as test").first();
+      console.log("Database connection test successful:", testQuery);
+      console.log("Testing nfl_schedule table...");
+      const scheduleQuery = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule").first();
+      console.log("Schedule query test successful:", scheduleQuery);
+      console.log("Testing players table...");
+      const playersQuery = await this.db.db.prepare("SELECT COUNT(*) as count FROM players").first();
+      console.log("Players query test successful:", playersQuery);
+      console.log("Testing parameter binding...");
+      const paramQuery = await this.db.db.prepare("SELECT COUNT(*) as count FROM nfl_schedule WHERE week = ?").bind(1).first();
+      console.log("Parameter query test successful:", paramQuery);
+      console.log("Testing insert...");
+      const insertStmt = this.db.db.prepare("INSERT OR REPLACE INTO player_matchups (player_id, week, game_id, opponent_team, is_home) VALUES (?, ?, ?, ?, ?)");
+      await insertStmt.bind(999999, 1, "test-game", "TEST", 1).run();
+      console.log("Insert test successful");
+      console.log("Testing exact utility function queries...");
+      const week = 1;
+      const stmt = this.db.db.prepare(`
+        SELECT * FROM nfl_schedule WHERE week = ?
+      `);
+      const result = await stmt.bind(week).all();
+      const schedule = result.results || result;
+      console.log(`Found ${schedule.length} games for week ${week}`);
+      const playersStmt = this.db.db.prepare(`
+        SELECT * FROM players WHERE team IS NOT NULL AND team != ''
+      `);
+      const playersResult = await playersStmt.all();
+      const players = playersResult.results || playersResult;
+      console.log(`Found ${players.length} players with team information`);
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Database tests passed",
+        data: {
+          test: testQuery,
+          schedule_count: scheduleQuery,
+          players_count: playersQuery,
+          param_query: paramQuery,
+          utility_schedule_count: schedule.length,
+          utility_players_count: players.length
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Database test failed:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Database test failed: " + (error instanceof Error ? error.message : "Unknown error")
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
+  async handleGetMatchups(request) {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get("week");
+      const playerId = url.searchParams.get("player_id");
+      const team = url.searchParams.get("team");
+      let query = `
+        SELECT pm.*, p.name, p.team, p.position
+        FROM player_matchups pm
+        JOIN players p ON pm.player_id = p.sleeper_id
+        WHERE 1=1
+      `;
+      const params = [];
+      if (week) {
+        query += " AND pm.week = ?";
+        params.push(parseInt(week));
+      }
+      if (playerId) {
+        query += " AND pm.player_id = ?";
+        params.push(parseInt(playerId));
+      }
+      if (team) {
+        query += " AND p.team = ?";
+        params.push(team);
+      }
+      query += " ORDER BY pm.week, p.name";
+      const matchups = await this.db.db.prepare(query).all(...params);
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          matchups,
+          count: matchups.length
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Get matchups error:", error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
 };
 __name(PlayersHandler, "PlayersHandler");
 
@@ -1961,6 +2348,27 @@ var src_default = {
             response = new Response("Method not allowed", { status: 405 });
           }
           break;
+        case "/matchups":
+          if (request.method === "GET") {
+            response = await playersHandler.handleGetMatchups(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
+        case "/sync/matchups":
+          if (request.method === "POST") {
+            response = await playersHandler.handleSyncMatchups(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
+        case "/test/database":
+          if (request.method === "GET") {
+            response = await playersHandler.handleTestDatabase(request);
+          } else {
+            response = new Response("Method not allowed", { status: 405 });
+          }
+          break;
         case "/sync/espn":
           if (request.method === "POST") {
             response = await playersHandler.handleSyncESPN(request);
@@ -2059,23 +2467,6 @@ var src_default = {
           } catch (error) {
             console.error(`Error syncing trending ${type} players:`, error);
           }
-        }
-        console.log("Syncing NFL schedule...");
-        try {
-          const playersHandler = new PlayersHandler(db, env);
-          const mockRequest = new Request("https://fantasy-command-center-api.kevin-mcgovern.workers.dev/sync/nfl-schedule", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" }
-          });
-          const response = await playersHandler.handleSyncNFLSchedule(mockRequest);
-          const result = await response.json();
-          if (result.success) {
-            console.log("NFL schedule sync completed successfully:", result.message);
-          } else {
-            console.error("NFL schedule sync failed:", result.error);
-          }
-        } catch (error) {
-          console.error("Error syncing NFL schedule:", error);
         }
         console.log("Daily Sleeper API sync job completed successfully");
       } catch (error) {

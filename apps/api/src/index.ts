@@ -147,6 +147,30 @@ export default {
           }
           break;
 
+        case '/matchups':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleGetMatchups(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/sync/matchups':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleSyncMatchups(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/database':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestDatabase(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/sync/espn':
           if (request.method === 'POST') {
             response = await playersHandler.handleSyncESPN(request);
@@ -271,26 +295,7 @@ export default {
           }
         }
 
-        // 3. Sync NFL schedule (weekly)
-        console.log('Syncing NFL schedule...');
-        try {
-          const playersHandler = new PlayersHandler(db, env);
-          const mockRequest = new Request('https://fantasy-command-center-api.kevin-mcgovern.workers.dev/sync/nfl-schedule', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
-          
-          const response = await playersHandler.handleSyncNFLSchedule(mockRequest);
-          const result = await response.json();
-          
-          if (result.success) {
-            console.log('NFL schedule sync completed successfully:', result.message);
-          } else {
-            console.error('NFL schedule sync failed:', result.error);
-          }
-        } catch (error) {
-          console.error('Error syncing NFL schedule:', error);
-        }
+
 
         console.log('Daily Sleeper API sync job completed successfully');
       } catch (error) {
