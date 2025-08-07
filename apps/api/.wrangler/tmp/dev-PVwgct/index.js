@@ -757,15 +757,22 @@ function normalizePlayerName(name) {
 __name(normalizePlayerName, "normalizePlayerName");
 var lastRequestTime = 0;
 var MIN_REQUEST_INTERVAL = 1e3;
+var dailyRequestCount = 0;
+var MAX_DAILY_REQUESTS = 100;
 async function rateLimitedRequest(url, apiKey) {
+  if (dailyRequestCount >= MAX_DAILY_REQUESTS) {
+    throw new Error("Daily FantasyPros API request limit exceeded (100 requests/day)");
+  }
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
     const delay = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+    console.log(`Rate limiting: waiting ${delay}ms before next request`);
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
   lastRequestTime = Date.now();
-  console.log(`Making FantasyPros API request to: ${url}`);
+  dailyRequestCount++;
+  console.log(`Making FantasyPros API request #${dailyRequestCount}/100 to: ${url}`);
   console.log(`API Key (first 8 chars): ${apiKey.substring(0, 8)}...`);
   const response = await fetch(url, {
     headers: {
@@ -784,25 +791,29 @@ async function rateLimitedRequest(url, apiKey) {
 }
 __name(rateLimitedRequest, "rateLimitedRequest");
 async function fetchFantasyProsProjections(apiKey, week, season) {
-  const positions = ["QB", "RB", "WR", "TE", "K", "DST"];
+  const positions = ["QB", "RB", "WR", "TE"];
   let allProjections = [];
   for (const position of positions) {
     try {
       let url = `${FANTASY_PROS_BASE_URL}/nfl/${season || 2024}/projections?position=${position}`;
-      if (week) {
+      if (week !== void 0) {
         url += `&week=${week}`;
+      } else {
+        url += `&week=0`;
       }
       console.log(`Making projections request to: ${url}`);
       const data = await rateLimitedRequest(url, apiKey);
+      console.log(`Raw ${position} projections response:`, JSON.stringify(data, null, 2));
       const projections = data.players?.map((item) => {
         const stats = Array.isArray(item.stats) ? item.stats : [];
-        const fpts = stats.find((stat) => stat.label === "FPTS");
+        const fpts = stats.find((stat) => stat.label === "FPTS" || stat.label === "Fantasy Points");
+        console.log(`Processing ${item.name}: stats=`, stats, "fpts=", fpts);
         return {
           player_id: item.fpid?.toString(),
           name: item.name,
           position: item.position_id,
           team: item.team_id,
-          week: week || 0,
+          week: week !== void 0 ? week : 0,
           season: season || 2024,
           projected_points: fpts?.value || 0,
           source: "FantasyPros"
@@ -1150,28 +1161,19 @@ var PlayersHandler = class {
       const season = url.searchParams.get("season") ? parseInt(url.searchParams.get("season")) : 2024;
       console.log(`Starting FantasyPros sync for week: ${week}, season: ${season}`);
       const allPlayers = await this.db.getAllPlayers();
-      const [projections, ecr, auctionValues, sos, players, news, injuries, rankings, consensusRankings, experts, playerPoints] = await Promise.all([
+      const [projections, players] = await Promise.all([
         fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY, week, season),
-        Promise.resolve([]),
-        // fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY!, week, season),
-        Promise.resolve([]),
-        // fetchFantasyProsAuctionValues(this.env.FANTASYPROS_API_KEY!, season),
-        Promise.resolve([]),
-        // fetchFantasyProsSOS(this.env.FANTASYPROS_API_KEY!, season),
-        fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY, "nfl"),
-        Promise.resolve([]),
-        // fetchFantasyProsNews(this.env.FANTASYPROS_API_KEY!, 'nfl', 50),
-        Promise.resolve([]),
-        // fetchFantasyProsInjuries(this.env.FANTASYPROS_API_KEY!, 'nfl'),
-        Promise.resolve([]),
-        // fetchFantasyProsRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
-        Promise.resolve([]),
-        // fetchFantasyProsConsensusRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
-        Promise.resolve([]),
-        // fetchFantasyProsExperts(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
-        Promise.resolve([])
-        // fetchFantasyProsPlayerPoints(this.env.FANTASYPROS_API_KEY!, season, week)
+        fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY, "nfl")
       ]);
+      const ecr = [];
+      const auctionValues = [];
+      const sos = [];
+      const news = [];
+      const injuries = [];
+      const rankings = [];
+      const consensusRankings = [];
+      const experts = [];
+      const playerPoints = [];
       const allFantasyProsData = [
         ...projections.map((p) => ({ ...p, data_type: "projection" })),
         ...ecr.map((e) => ({ ...e, data_type: "ecr" })),

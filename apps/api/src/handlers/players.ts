@@ -334,20 +334,22 @@ export class PlayersHandler {
       // Get all players for matching
       const allPlayers = await this.db.getAllPlayers();
       
-      // Fetch all FantasyPros data - start with just players to test
-      const [projections, ecr, auctionValues, sos, players, news, injuries, rankings, consensusRankings, experts, playerPoints] = await Promise.all([
+      // Fetch minimal FantasyPros data to test API limits
+      const [projections, players] = await Promise.all([
         fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY!, week, season),
-        Promise.resolve([]), // fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY!, week, season),
-        Promise.resolve([]), // fetchFantasyProsAuctionValues(this.env.FANTASYPROS_API_KEY!, season),
-        Promise.resolve([]), // fetchFantasyProsSOS(this.env.FANTASYPROS_API_KEY!, season),
         fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY!, 'nfl'),
-        Promise.resolve([]), // fetchFantasyProsNews(this.env.FANTASYPROS_API_KEY!, 'nfl', 50),
-        Promise.resolve([]), // fetchFantasyProsInjuries(this.env.FANTASYPROS_API_KEY!, 'nfl'),
-        Promise.resolve([]), // fetchFantasyProsRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
-        Promise.resolve([]), // fetchFantasyProsConsensusRankings(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
-        Promise.resolve([]), // fetchFantasyProsExperts(this.env.FANTASYPROS_API_KEY!, season, 'nfl'),
-        Promise.resolve([])  // fetchFantasyProsPlayerPoints(this.env.FANTASYPROS_API_KEY!, season, week)
       ]);
+      
+      // Skip other data types for now to conserve API calls
+      const ecr: any[] = [];
+      const auctionValues: any[] = [];
+      const sos: any[] = [];
+      const news: any[] = [];
+      const injuries: any[] = [];
+      const rankings: any[] = [];
+      const consensusRankings: any[] = [];
+      const experts: any[] = [];
+      const playerPoints: any[] = [];
       
       // Match and combine all data
       const allFantasyProsData = [
