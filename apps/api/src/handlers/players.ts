@@ -7,6 +7,7 @@ import {
   fetchTrendingPlayers,
   fetchAllPlayersComplete
 } from '../services/sleeper';
+import { upsertTrendingPlayers, getTrendingPlayers, getTrendingPlayersByLookback } from '../utils/db';
 
 export class PlayersHandler {
   private db: DatabaseService;

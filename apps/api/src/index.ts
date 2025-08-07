@@ -187,17 +187,22 @@ export default {
       const players = await fetchAllPlayersComplete();
       
       const validPlayers = [];
+      let skippedCount = 0;
+      
       for (const player of players) {
-        if (validatePlayer(player)) {
+        const validation = validatePlayer(player);
+        if (validation.isValid) {
           const transformedPlayer = transformSleeperPlayer(player);
           validPlayers.push(transformedPlayer);
+        } else {
+          skippedCount++;
         }
       }
       
       if (validPlayers.length > 0) {
         await db.upsertSleeperPlayers(validPlayers);
       }
-      console.log(`Successfully synced ${validPlayers} players from Sleeper API`);
+      console.log(`Successfully synced ${validPlayers.length} players from Sleeper API (${skippedCount} skipped)`);
 
       // 2. Sync trending players (both add and drop)
       console.log('Syncing trending players from Sleeper API...');
@@ -206,13 +211,18 @@ export default {
       
       for (const type of trendingTypes) {
         try {
+          console.log(`Fetching trending ${type} players with ${lookbackHours}h lookback...`);
           const trendingPlayers = await fetchTrendingPlayers(type, lookbackHours);
+          
           if (trendingPlayers && trendingPlayers.length > 0) {
             await upsertTrendingPlayers(env.DB, trendingPlayers, type, lookbackHours);
             console.log(`Successfully synced ${trendingPlayers.length} trending ${type} players`);
+          } else {
+            console.log(`No trending ${type} players found for ${lookbackHours}h lookback`);
           }
         } catch (error) {
           console.error(`Error syncing trending ${type} players:`, error);
+          // Continue with other types even if one fails
         }
       }
 
