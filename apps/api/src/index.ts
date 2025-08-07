@@ -131,6 +131,22 @@ export default {
           }
           break;
 
+        case '/nfl/schedule':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleGetNFLSchedule(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/sync/nfl-schedule':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleSyncNFLSchedule(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/sync/espn':
           if (request.method === 'POST') {
             response = await playersHandler.handleSyncESPN(request);

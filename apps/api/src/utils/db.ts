@@ -300,3 +300,65 @@ export async function getPlayersWithFantasyData(db: any, week?: number, season?:
   const result = await db.prepare(query).bind(...params).all();
   return result.results || [];
 }
+
+// NFL Schedule management
+export async function upsertNFLSchedule(db: any, games: any[]): Promise<void> {
+  if (games.length === 0) return;
+
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO nfl_schedule (
+      game_id, week, game_date, kickoff_time, home_team, away_team, 
+      location, network, game_type, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `);
+
+  const batch = games.map(game => 
+    stmt.bind(
+      game.game_id,
+      game.week,
+      game.game_date,
+      game.kickoff_time || null,
+      game.home_team,
+      game.away_team,
+      game.location || null,
+      game.network || null,
+      game.game_type,
+    )
+  );
+
+  await db.batch(batch);
+  console.log(`Upserted ${games.length} NFL schedule games`);
+}
+
+export async function getNFLSchedule(db: any, week?: number): Promise<any[]> {
+  let query = 'SELECT * FROM nfl_schedule';
+  const params = [];
+  
+  if (week) {
+    query += ' WHERE week = ?';
+    params.push(week);
+  }
+  
+  query += ' ORDER BY game_date, kickoff_time';
+  
+  const result = await db.prepare(query).bind(...params).all();
+  return result.results || [];
+}
+
+export async function getNFLGamesByWeek(db: any, week: number): Promise<any[]> {
+  const result = await db.prepare(`
+    SELECT * FROM nfl_schedule 
+    WHERE week = ? 
+    ORDER BY game_date, kickoff_time
+  `).bind(week).all();
+  return result.results || [];
+}
+
+export async function getNFLGamesByTeam(db: any, team: string): Promise<any[]> {
+  const result = await db.prepare(`
+    SELECT * FROM nfl_schedule 
+    WHERE home_team = ? OR away_team = ? 
+    ORDER BY game_date, kickoff_time
+  `).bind(team, team).all();
+  return result.results || [];
+}

@@ -23,7 +23,8 @@ import {
   matchFantasyProsToPlayers,
   matchFantasyProsToPlayerUpdates
 } from '../services/fantasyPros';
-import { upsertFantasyProsData, getPlayersWithFantasyData, updatePlayerFantasyProsData } from '../utils/db';
+import { scrapeNFLSchedule } from '../services/nflSchedule';
+import { upsertFantasyProsData, getPlayersWithFantasyData, updatePlayerFantasyProsData, upsertNFLSchedule, getNFLSchedule, getNFLGamesByWeek, getNFLGamesByTeam } from '../utils/db';
 
 interface Env {
   DB: any;
@@ -526,6 +527,77 @@ export class PlayersHandler {
       }
     } catch (error) {
       console.error('Test FantasyPros key error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleSyncNFLSchedule(request: Request): Promise<Response> {
+    try {
+      console.log('Starting NFL schedule sync...');
+      
+      // Scrape NFL schedule
+      const games = await scrapeNFLSchedule();
+      
+      if (games.length > 0) {
+        await upsertNFLSchedule(this.db.db, games);
+        console.log(`Successfully synced ${games.length} NFL schedule games`);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Synced ${games.length} NFL schedule games`,
+          data: {
+            games_count: games.length,
+            games: games
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'No NFL schedule games found',
+          data: { games_count: 0 }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } catch (error) {
+      console.error('Sync NFL schedule error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleGetNFLSchedule(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get('week') ? parseInt(url.searchParams.get('week')!) : undefined;
+      
+      const games = await getNFLSchedule(this.db.db, week);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          week,
+          count: games.length,
+          games
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Get NFL schedule error:', error);
       return new Response(JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
