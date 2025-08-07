@@ -79,7 +79,13 @@ export class PlayersHandler {
       }
 
       return new Response(
-        JSON.stringify(players),
+        JSON.stringify({
+          success: true,
+          data: {
+            players: players,
+            count: players.length
+          }
+        }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
 
