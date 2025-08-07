@@ -59,6 +59,15 @@ interface Player {
   competitions: string | null;
   created_at: string;
   updated_at: string;
+  // FantasyPros data fields
+  ecr_rank: number | null;
+  projected_points: number | null;
+  auction_value: number | null;
+  sos_rank: number | null;
+  tier: number | null;
+  position_rank: number | null;
+  value_over_replacement: number | null;
+  source: string | null;
 }
 
 interface TrendingPlayer {
@@ -85,8 +94,8 @@ export function ResearchPlayers() {
   const fetchPlayers = useCallback(async () => {
     setIsLoadingPlayers(true);
     try {
-      // Load all players by not specifying a limit
-      const data = await get<Player[]>('/players');
+      // Load all players with FantasyPros data
+      const data = await get<Player[]>('/players/with-fantasy-data');
       if (data) {
         setPlayers(data);
       }
@@ -238,6 +247,9 @@ export function ResearchPlayers() {
               <option value="team">Team</option>
               <option value="bye_week">Bye Week</option>
               <option value="status">Status</option>
+              <option value="ecr_rank">ECR Rank</option>
+              <option value="projected_points">Projected Points</option>
+              <option value="auction_value">Auction Value</option>
             </select>
           </div>
         </div>
@@ -315,7 +327,13 @@ export function ResearchPlayers() {
                     Bye
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Proj. Source
+                    ECR Rank
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Proj. Points
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Auction Value
                   </th>
                 </tr>
               </thead>
@@ -358,8 +376,14 @@ export function ResearchPlayers() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {player.bye_week || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {player.projection_source === 'none' ? 'No projections' : player.projection_source}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {player.ecr_rank ? `#${player.ecr_rank}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {player.projected_points ? player.projected_points.toFixed(1) : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {player.auction_value ? `$${player.auction_value}` : '-'}
                     </td>
                   </tr>
                 ))}
@@ -444,7 +468,7 @@ export function ResearchPlayers() {
                   </div>
                 </div>
 
-                {/* Fantasy Information */}
+                                  {/* Fantasy Information */}
                 <div>
                   <h4 className="text-md font-semibold text-gray-900 mb-3">Fantasy Information</h4>
                   <div className="space-y-2 text-sm">
@@ -467,6 +491,43 @@ export function ResearchPlayers() {
                     <div className="flex justify-between">
                       <span className="font-medium text-gray-600">Projection Source:</span>
                       <span>{selectedPlayer.projection_source === 'none' ? 'No projections' : selectedPlayer.projection_source}</span>
+                    </div>
+                  </div>
+
+                  {/* FantasyPros Data */}
+                  <h4 className="text-md font-semibold text-gray-900 mb-3 mt-4">FantasyPros Data</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">ECR Rank:</span>
+                      <span>{selectedPlayer.ecr_rank ? `#${selectedPlayer.ecr_rank}` : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Projected Points:</span>
+                      <span>{selectedPlayer.projected_points ? selectedPlayer.projected_points.toFixed(1) : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Auction Value:</span>
+                      <span>{selectedPlayer.auction_value ? `$${selectedPlayer.auction_value}` : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">SOS Rank:</span>
+                      <span>{selectedPlayer.sos_rank ? `#${selectedPlayer.sos_rank}` : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Tier:</span>
+                      <span>{selectedPlayer.tier || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Position Rank:</span>
+                      <span>{selectedPlayer.position_rank ? `#${selectedPlayer.position_rank}` : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Value Over Replacement:</span>
+                      <span>{selectedPlayer.value_over_replacement ? selectedPlayer.value_over_replacement.toFixed(1) : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">Data Source:</span>
+                      <span>{selectedPlayer.source || '-'}</span>
                     </div>
                   </div>
 
