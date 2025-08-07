@@ -201,3 +201,62 @@ export async function getTrendingPlayersByLookback(db: any, type: string, lookba
   `).bind(type, lookbackHours, limit).all();
   return result.results || [];
 }
+
+// FantasyPros data management
+export async function upsertFantasyProsData(db: any, fantasyProsData: any[]): Promise<void> {
+  if (fantasyProsData.length === 0) return;
+
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO fantasy_pros_data (
+      sleeper_id, source, week, season, ecr_rank, projected_points, 
+      auction_value, sos_rank, tier, position_rank, value_over_replacement
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const batch = fantasyProsData.map(item =>
+    stmt.bind(
+      item.sleeper_id,
+      item.source || 'FantasyPros',
+      item.week || null,
+      item.season || null,
+      item.ecr_rank || null,
+      item.projected_points || null,
+      item.auction_value || null,
+      item.sos_rank || null,
+      item.tier || null,
+      item.position_rank || null,
+      item.value_over_replacement || null
+    )
+  );
+
+  await db.batch(batch);
+}
+
+export async function getPlayersWithFantasyData(db: any, week?: number, season?: number): Promise<any[]> {
+  let query = `
+    SELECT p.*, fp.ecr_rank, fp.projected_points, fp.auction_value, fp.sos_rank, 
+           fp.tier, fp.position_rank, fp.value_over_replacement, fp.source
+    FROM players p
+    LEFT JOIN fantasy_pros_data fp ON p.sleeper_id = fp.sleeper_id
+  `;
+  
+  const params = [];
+  if (week || season) {
+    query += ' WHERE ';
+    const conditions = [];
+    if (week) {
+      conditions.push('fp.week = ?');
+      params.push(week);
+    }
+    if (season) {
+      conditions.push('fp.season = ?');
+      params.push(season);
+    }
+    query += conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY p.name';
+  
+  const result = await db.prepare(query).bind(...params).all();
+  return result.results || [];
+}

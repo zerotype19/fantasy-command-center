@@ -45,7 +45,7 @@ export default {
 
     // Initialize handlers
     const leagueHandler = new LeagueHandler(db);
-    const playersHandler = new PlayersHandler(db);
+    const playersHandler = new PlayersHandler(db, env);
     const alertsHandler = new AlertsHandler(db);
     const teamHandler = new TeamHandler(db);
 
@@ -102,6 +102,22 @@ export default {
         case '/sync/trending':
           if (request.method === 'POST') {
             response = await playersHandler.handleSyncTrendingPlayers(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/sync/fantasy-pros':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleSyncFantasyPros(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/players/with-fantasy-data':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleGetPlayersWithFantasyData(request);
           } else {
             response = new Response('Method not allowed', { status: 405 });
           }

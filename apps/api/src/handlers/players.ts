@@ -1,19 +1,36 @@
 import { DatabaseService } from '../utils/db';
-import { 
-  fetchAllPlayers, 
-  filterPlayersForDevelopment, 
-  validatePlayer, 
-  transformSleeperPlayer, 
+import {
+  fetchAllPlayers,
+  filterPlayersForDevelopment,
+  validatePlayer,
+  transformSleeperPlayer,
   fetchTrendingPlayers,
   fetchAllPlayersComplete
 } from '../services/sleeper';
 import { upsertTrendingPlayers, getTrendingPlayers, getTrendingPlayersByLookback } from '../utils/db';
+import {
+  fetchFantasyProsProjections,
+  fetchFantasyProsECR,
+  fetchFantasyProsAuctionValues,
+  fetchFantasyProsSOS,
+  matchFantasyProsToPlayers
+} from '../services/fantasyPros';
+import { upsertFantasyProsData, getPlayersWithFantasyData } from '../utils/db';
+
+interface Env {
+  DB: any;
+  NOAA_BASE_URL: string;
+  ESPN_BASE_URL: string;
+  FANTASY_PROS: string;
+}
 
 export class PlayersHandler {
   private db: DatabaseService;
+  private env: Env;
 
-  constructor(db: DatabaseService) {
+  constructor(db: DatabaseService, env: Env) {
     this.db = db;
+    this.env = env;
   }
 
   async handleGet(request: Request): Promise<Response> {
@@ -292,6 +309,104 @@ export class PlayersHandler {
       return new Response(JSON.stringify({
         success: false,
         message: errorMessage
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleSyncFantasyPros(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get('week') ? parseInt(url.searchParams.get('week')!) : undefined;
+      const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : 2024;
+      
+      console.log(`Starting FantasyPros sync for week: ${week}, season: ${season}`);
+      
+      // Get all players for matching
+      const allPlayers = await this.db.getAllPlayers();
+      
+      // Fetch all FantasyPros data
+      const [projections, ecr, auctionValues, sos] = await Promise.all([
+        fetchFantasyProsProjections(this.env.FANTASY_PROS!, week, season),
+        fetchFantasyProsECR(this.env.FANTASY_PROS!, week, season),
+        fetchFantasyProsAuctionValues(this.env.FANTASY_PROS!, season),
+        fetchFantasyProsSOS(this.env.FANTASY_PROS!, season)
+      ]);
+      
+      // Match and combine all data
+      const allFantasyProsData = [
+        ...projections.map(p => ({ ...p, data_type: 'projection' })),
+        ...ecr.map(e => ({ ...e, data_type: 'ecr' })),
+        ...auctionValues.map(a => ({ ...a, data_type: 'auction' })),
+        ...sos.map(s => ({ ...s, data_type: 'sos' }))
+      ];
+      
+      const { matched, unmatched } = matchFantasyProsToPlayers(allFantasyProsData, allPlayers);
+      
+      if (matched.length > 0) {
+        await upsertFantasyProsData(this.db.db, matched);
+        console.log(`Successfully synced ${matched.length} FantasyPros records (${unmatched.length} unmatched)`);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Synced ${matched.length} FantasyPros records`,
+          data: {
+            week,
+            season,
+            matched_count: matched.length,
+            unmatched_count: unmatched.length,
+            unmatched_sample: unmatched.slice(0, 10) // Return sample of unmatched for debugging
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'No FantasyPros data matched to players',
+          data: { week, season, matched_count: 0, unmatched_count: allFantasyProsData.length }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } catch (error) {
+      console.error('Sync FantasyPros error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleGetPlayersWithFantasyData(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const week = url.searchParams.get('week') ? parseInt(url.searchParams.get('week')!) : undefined;
+      const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : 2024;
+      
+      const players = await getPlayersWithFantasyData(this.db.db, week, season);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          week,
+          season,
+          count: players.length,
+          players
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Get players with fantasy data error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
