@@ -1,31 +1,28 @@
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Home } from './pages/Home';
-import { League } from './pages/League';
-import { ResearchPlayers } from './pages/ResearchPlayers';
-import { LoadMyTeam } from './pages/LoadMyTeam';
-import { NFLSchedule } from './pages/NFLSchedule';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import League from './pages/League';
+import LoadMyTeam from './pages/LoadMyTeam';
+import NFLSchedule from './pages/NFLSchedule';
+import ResearchPlayers from './pages/ResearchPlayers';
 import PlayerMatchups from './pages/PlayerMatchups';
-import { Layout } from './components/Layout';
+import FantasyProsAdmin from './pages/FantasyProsAdmin';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('research');
-
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/research" replace />} />
-            <Route path="/research" element={<ResearchPlayers />} />
-            <Route path="/schedule" element={<NFLSchedule />} />
-            <Route path="/team" element={<LoadMyTeam />} />
-            <Route path="/settings" element={<League />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/matchups" element={<PlayerMatchups />} />
-          </Routes>
-        </Layout>
-      </div>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/league" element={<League />} />
+          <Route path="/load-my-team" element={<LoadMyTeam />} />
+          <Route path="/nfl-schedule" element={<NFLSchedule />} />
+          <Route path="/research-players" element={<ResearchPlayers />} />
+          <Route path="/matchups" element={<PlayerMatchups />} />
+          <Route path="/fantasy-pros-admin" element={<FantasyProsAdmin />} />
+        </Routes>
+      </Layout>
     </Router>
   );
 }

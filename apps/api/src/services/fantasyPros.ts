@@ -1,3 +1,5 @@
+import { cacheFantasyProsResponse, getCachedFantasyProsResponse } from '../utils/db';
+
 const FANTASY_PROS_BASE_URL = 'https://api.fantasypros.com/public/v2/json';
 
 export interface FantasyProsProjection {
@@ -124,26 +126,38 @@ export function resetFantasyProsDailyCount() {
   console.log('Daily FantasyPros API request count manually reset to 0');
 }
 
-async function rateLimitedRequest(url: string, apiKey: string): Promise<any> {
-  // Check daily limit
-  if (dailyRequestCount >= MAX_DAILY_REQUESTS) {
-    throw new Error('Daily FantasyPros API request limit exceeded (100 requests/day)');
+async function rateLimitedRequest(url: string, apiKey: string, db?: any, cacheKey?: string, week?: number, season?: number): Promise<any> {
+  if (!apiKey) {
+    throw new Error('FantasyPros API key is required but not provided');
+  }
+
+  // Check cache first if db is provided
+  if (db && cacheKey) {
+    const cached = await getCachedFantasyProsResponse(db, cacheKey, week, season);
+    if (cached) {
+      console.log(`Using cached FantasyPros response for ${cacheKey}`);
+      return cached;
+    }
+  }
+
+  // Increment daily request count
+  const today = new Date().toISOString().split('T')[0];
+  const countKey = `fantasy_pros_daily_count_${today}`;
+  const currentCount = parseInt(localStorage.getItem(countKey) || '0');
+  
+  if (currentCount >= 100) {
+    throw new Error('Daily FantasyPros API limit reached (100 requests)');
   }
   
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
+  localStorage.setItem(countKey, (currentCount + 1).toString());
+  console.log(`Making FantasyPros API request #${currentCount + 1}/100 to: ${url}`);
   
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    const delay = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+  // Add delay to respect rate limits
+  if (currentCount > 0) {
+    const delay = Math.min(1000, currentCount * 100); // Progressive delay
     console.log(`Rate limiting: waiting ${delay}ms before next request`);
     await new Promise(resolve => setTimeout(resolve, delay));
   }
-  
-  lastRequestTime = Date.now();
-  dailyRequestCount++;
-  
-  console.log(`Making FantasyPros API request #${dailyRequestCount}/100 to: ${url}`);
-  console.log(`API Key (first 8 chars): ${apiKey.substring(0, 8)}...`);
   
   const response = await fetch(url, {
     headers: {
@@ -153,25 +167,33 @@ async function rateLimitedRequest(url: string, apiKey: string): Promise<any> {
     },
   });
   
-  console.log(`FantasyPros API response status: ${response.status} ${response.statusText}`);
-  
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`FantasyPros API error response: ${errorText}`);
     throw new Error(`FantasyPros API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
   
-  return response.json();
+  const data = await response.json();
+  
+  // Cache the response if db is provided
+  if (db && cacheKey) {
+    try {
+      await cacheFantasyProsResponse(db, cacheKey, data, week, season);
+    } catch (error) {
+      console.log(`Failed to cache FantasyPros response: ${error}`);
+    }
+  }
+  
+  return data;
 }
 
-export async function fetchFantasyProsProjections(apiKey: string, week?: number, season?: number): Promise<FantasyProsProjection[]> {
+export async function fetchFantasyProsProjections(apiKey: string, week?: number, season?: number, db?: any): Promise<FantasyProsProjection[]> {
   // Focus on the most important positions to minimize API calls
   const positions = ['QB', 'RB', 'WR', 'TE']; // Removed K, DST to save API calls
   let allProjections: FantasyProsProjection[] = [];
   
   for (const position of positions) {
     try {
-      let url = `${FANTASY_PROS_BASE_URL}/nfl/${season || 2024}/projections?position=${position}`;
+      let url = `${FANTASY_PROS_BASE_URL}/nfl/${season || 2025}/projections?position=${position}`;
       if (week !== undefined) {
         url += `&week=${week}`;
       } else {
@@ -179,7 +201,7 @@ export async function fetchFantasyProsProjections(apiKey: string, week?: number,
         url += `&week=0`;
       }
       console.log(`Making projections request to: ${url}`);
-      const data = await rateLimitedRequest(url, apiKey);
+      const data = await rateLimitedRequest(url, apiKey, db, `projections_${position}`, week, season);
       
       // Transform the response to match our interface
       console.log(`Raw ${position} projections response:`, JSON.stringify(data, null, 2));
@@ -196,7 +218,7 @@ export async function fetchFantasyProsProjections(apiKey: string, week?: number,
           position: item.position_id,
           team: item.team_id,
           week: week !== undefined ? week : 0,
-          season: season || 2024,
+          season: season || 2025,
           projected_points: fpts?.value || 0,
           source: 'FantasyPros',
         };
@@ -213,7 +235,7 @@ export async function fetchFantasyProsProjections(apiKey: string, week?: number,
   return allProjections;
 }
 
-export async function fetchFantasyProsECR(apiKey: string, week?: number, season?: number): Promise<FantasyProsECR[]> {
+export async function fetchFantasyProsECR(apiKey: string, week?: number, season?: number, db?: any): Promise<FantasyProsECR[]> {
   // Focus on the most important positions to minimize API calls
   const positions = ['QB', 'RB', 'WR', 'TE']; // Removed K, DST to save API calls
   let allECR: FantasyProsECR[] = [];
@@ -226,9 +248,9 @@ export async function fetchFantasyProsECR(apiKey: string, week?: number, season?
         params.append('week', week.toString());
       }
       
-      const url = `${FANTASY_PROS_BASE_URL}/nfl/${season || 2024}/consensus-rankings?${params}`;
+      const url = `${FANTASY_PROS_BASE_URL}/nfl/${season || 2025}/consensus-rankings?${params}`;
       console.log(`Making ECR request to: ${url}`);
-      const data = await rateLimitedRequest(url, apiKey);
+      const data = await rateLimitedRequest(url, apiKey, db, `ecr_${position}`, week, season);
       
       console.log(`Raw ECR response for ${position}:`, JSON.stringify(data, null, 2));
       
@@ -270,26 +292,38 @@ export async function fetchFantasyProsSOS(apiKey: string, season?: number): Prom
   return [];
 }
 
-export async function fetchFantasyProsPlayers(apiKey: string, sport: string = 'nfl'): Promise<FantasyProsPlayer[]> {
-  const url = `${FANTASY_PROS_BASE_URL}/${sport}/players?external_ids=espn:yahoo:rotowire:rotoworld:nfl`;
-  const data = await rateLimitedRequest(url, apiKey);
-  
-  return data.players?.map((item: any) => ({
-    player_id: item.fpid?.toString(),
-    name: item.name,
-    position: item.position_id,
-    team: item.team_id,
-    filename: item.filename,
-    headshot_url: item.headshot_url,
-    injury_status: item.injury_status,
-    injury_type: item.injury_type,
-    injury_update_date: item.injury_update_date,
-    espn_id: item.espn_id,
-    yahoo_id: item.yahoo_id,
-    rotowire_id: item.rotowire_id,
-    rotoworld_id: item.rotoworld_id,
-    gsis_id: item.nfl_id,
-  })) || [];
+export async function fetchFantasyProsPlayers(apiKey: string, sport: string = 'nfl', db?: any): Promise<FantasyProsPlayer[]> {
+  try {
+    const url = `${FANTASY_PROS_BASE_URL}/${sport}/players?external_ids=espn:yahoo:rotowire:rotoworld:nfl`;
+    console.log(`Making players request to: ${url}`);
+    const data = await rateLimitedRequest(url, apiKey, db, `players_${sport}`);
+    
+    console.log(`Raw players response:`, JSON.stringify(data, null, 2));
+    
+    // Transform the response to match our interface
+    const players = data.players?.map((item: any) => ({
+      player_id: item.fpid?.toString(),
+      name: item.name,
+      position: item.position_id,
+      team: item.team_id,
+      filename: item.filename,
+      headshot_url: item.headshot_url,
+      injury_status: item.injury_status,
+      injury_type: item.injury_type,
+      injury_update_date: item.injury_update_date,
+      espn_id: item.espn_id?.toString(),
+      yahoo_id: item.yahoo_id?.toString(),
+      rotowire_id: item.rotowire_id?.toString(),
+      rotoworld_id: item.rotoworld_id?.toString(),
+      gsis_id: item.gsis_id?.toString(),
+    })) || [];
+    
+    console.log(`Fetched ${players.length} players`);
+    return players;
+  } catch (error) {
+    console.log(`Failed to fetch players: ${error}`);
+    return [];
+  }
 }
 
 export async function fetchFantasyProsNews(apiKey: string, sport: string = 'nfl', limit: number = 50): Promise<FantasyProsNews[]> {

@@ -25,7 +25,9 @@ import {
 } from '../services/fantasyPros';
 import { scrapeNFLSchedule } from '../services/nflSchedule';
 import { generatePlayerMatchupsForWeek, enrichWeatherForGame, syncDefenseStrength } from '../utils/matchups';
-import { upsertFantasyProsData, getPlayersWithFantasyData, updatePlayerFantasyProsData, upsertNFLSchedule, getNFLSchedule, getNFLGamesByWeek, getNFLGamesByTeam } from '../utils/db';
+import { upsertFantasyProsData, getPlayersWithFantasyData, updatePlayerFantasyProsData, upsertNFLSchedule, getNFLSchedule, getNFLGamesByWeek, getNFLGamesByTeam, clearFantasyProsCache, getCachedFantasyProsResponse } from '../utils/db';
+import { parseFantasyProsCSV, matchCSVToPlayers } from '../utils/csvParser';
+import { updatePlayersWithFantasyProsCSV } from '../utils/db';
 
 interface Env {
   DB: any;
@@ -336,21 +338,48 @@ export class PlayersHandler {
     try {
       const url = new URL(request.url);
       const week = url.searchParams.get('week') ? parseInt(url.searchParams.get('week')!) : undefined;
-      const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : 2024;
+      const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : 2025; // Default to current season
       
       console.log(`Starting FantasyPros sync for week: ${week}, season: ${season}`);
+      
+      if (!this.env.FANTASYPROS_API_KEY) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'FantasyPros API key is not configured. Please set the FANTASYPROS_API_KEY environment variable.',
+          data: {
+            week,
+            season,
+            updated_count: 0,
+            unmatched_count: 0
+          }
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
       
       // Get all players for matching
       const allPlayers = await this.db.getAllPlayers();
       
-      // Fetch minimal FantasyPros data to test API limits
-      const [projections, players] = await Promise.all([
-        fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY!, week, season),
-        fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY!, 'nfl'),
+      // Fetch FantasyPros data - enable ECR for rankings data
+      const [projections, players, ecr] = await Promise.all([
+        fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY, week, season, this.db.db),
+        fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY, 'nfl', this.db.db),
+        fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY, week, season, this.db.db),
       ]);
       
+      console.log(`FantasyPros data fetched - Projections: ${projections.length}, Players: ${players.length}, ECR: ${ecr.length}`);
+      console.log(`Sample projection:`, projections[0]);
+      console.log(`Sample ECR:`, ecr[0]);
+      
+      // Log raw cached data for debugging
+      console.log('=== CACHED DATA DEBUG ===');
+      console.log('Projections sample:', JSON.stringify(projections.slice(0, 2), null, 2));
+      console.log('ECR sample:', JSON.stringify(ecr.slice(0, 2), null, 2));
+      console.log('Players sample:', JSON.stringify(players.slice(0, 2), null, 2));
+      console.log('=== END CACHED DATA DEBUG ===');
+      
       // Skip other data types for now to conserve API calls
-      const ecr: any[] = [];
       const auctionValues: any[] = [];
       const sos: any[] = [];
       const news: any[] = [];
@@ -449,83 +478,51 @@ export class PlayersHandler {
   async handleTestFantasyProsKey(request: Request): Promise<Response> {
     try {
       const apiKey = this.env.FANTASYPROS_API_KEY;
-      const keyPreview = apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT_FOUND';
+      const keyAvailable = !!apiKey;
+      const keyPreview = keyAvailable ? `${apiKey.substring(0, 8)}...` : 'NOT_FOUND';
+      const keyLength = keyAvailable ? apiKey.length : 0;
       
-      // Test a single API call to check rate limiting
-      try {
-        const testUrl = 'https://api.fantasypros.com/public/v2/json/nfl/2024/projections?position=QB&week=0';
-        console.log('Testing single FantasyPros API call...');
-        
-        const response = await fetch(testUrl, {
-          headers: {
-            'X-API-Key': apiKey,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        console.log(`Test API response status: ${response.status} ${response.statusText}`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Test API error: ${errorText}`);
-          
-          return new Response(JSON.stringify({
-            success: true,
-            message: 'FantasyPros API key status',
-            data: {
-              key_available: !!apiKey,
-              key_preview: keyPreview,
-              key_length: apiKey ? apiKey.length : 0,
-              api_test: {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorText
-              }
-            }
-          }), {
-            headers: { 'Content-Type': 'application/json' }
+      // Test a single API call
+      let apiTest = { status: 0, statusText: '', error: '' };
+      if (keyAvailable) {
+        try {
+          console.log('Testing single FantasyPros API call...');
+          const response = await fetch('https://api.fantasypros.com/public/v2/json/nfl/2024/projections?position=QB&week=0', {
+            headers: {
+              'X-API-Key': apiKey,
+              'Content-Type': 'application/json',
+              'User-Agent': 'Fantasy-Command-Center/1.0',
+            },
           });
+          
+          apiTest.status = response.status;
+          apiTest.statusText = response.statusText;
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            apiTest.error = errorText;
+          } else {
+            const data = await response.json();
+            console.log('Raw FantasyPros API response:', JSON.stringify(data, null, 2));
+            apiTest.error = 'Success - check logs for response data';
+          }
+        } catch (error) {
+          apiTest.error = error instanceof Error ? error.message : 'Unknown error';
         }
-        
-        const data = await response.json();
-        console.log('Test API call successful, got data:', Object.keys(data));
-        
-        return new Response(JSON.stringify({
-          success: true,
-          message: 'FantasyPros API key status',
-          data: {
-            key_available: !!apiKey,
-            key_preview: keyPreview,
-            key_length: apiKey ? apiKey.length : 0,
-            api_test: {
-              status: response.status,
-              statusText: response.statusText,
-              success: true,
-              data_keys: Object.keys(data)
-            }
-          }
-        }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-      } catch (apiError) {
-        console.error('Test API call failed:', apiError);
-        
-        return new Response(JSON.stringify({
-          success: true,
-          message: 'FantasyPros API key status',
-          data: {
-            key_available: !!apiKey,
-            key_preview: keyPreview,
-            key_length: apiKey ? apiKey.length : 0,
-            api_test: {
-              error: apiError instanceof Error ? apiError.message : 'Unknown API error'
-            }
-          }
-        }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
       }
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'FantasyPros API key status',
+        data: {
+          key_available: keyAvailable,
+          key_preview: keyPreview,
+          key_length: keyLength,
+          api_test: apiTest
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
     } catch (error) {
       console.error('Test FantasyPros key error:', error);
       return new Response(JSON.stringify({
@@ -810,83 +807,114 @@ export class PlayersHandler {
 
     async handleTestDatabase(request: Request): Promise<Response> {
     try {
-      console.log('Testing database connection...');
-      const testQuery = await this.db.db.prepare('SELECT 1 as test').first();
-      console.log('Database connection test successful:', testQuery);
-
-      console.log('Testing nfl_schedule table...');
-      const scheduleQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule').first();
-      console.log('Schedule query test successful:', scheduleQuery);
-
-      console.log('Testing players table...');
-      const playersQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM players').first();
-      console.log('Players query test successful:', playersQuery);
-
-      console.log('Testing parameter binding...');
-      const paramQuery = await this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule WHERE week = ?').bind(1).first();
-      console.log('Parameter query test successful:', paramQuery);
-
-      console.log('Testing insert...');
-      const insertStmt = this.db.db.prepare('INSERT OR REPLACE INTO player_matchups (player_id, week, game_id, opponent_team, is_home) VALUES (?, ?, ?, ?, ?)');
-      await insertStmt.bind(999999, 1, 'test-game', 'TEST', 1).run();
-      console.log('Insert test successful');
-
-      console.log('Testing exact utility function queries...');
-      const week = 1;
-
-      // Test the exact same queries as the utility function
-      const stmt = this.db.db.prepare(`
-        SELECT * FROM nfl_schedule WHERE week = ?
-      `);
-      const result = await stmt.bind(week).all();
-      const schedule = result.results || result;
-      console.log(`Found ${schedule.length} games for week ${week}`);
-
-      const playersStmt = this.db.db.prepare(`
-        SELECT * FROM players WHERE team IS NOT NULL AND team != ''
-      `);
-      const playersResult = await playersStmt.all();
-      const players = playersResult.results || playersResult;
-      console.log(`Found ${players.length} players with team information`);
-
-      // Test the exact same insert as the utility function
-      console.log('Testing utility function insert...');
-      const testPlayer = players[0];
-      if (testPlayer) {
-        const insertStmt2 = this.db.db.prepare(`
-          INSERT OR REPLACE INTO player_matchups (
-            player_id, week, game_id, opponent_team, is_home
-          ) VALUES (?, ?, ?, ?, ?)
-        `);
-        await insertStmt2.bind(
-          testPlayer.sleeper_id,
-          week,
-          'test-game-2',
-          'TEST2',
-          1
-        ).run();
-        console.log('Utility function insert test successful');
+      // Test basic database connectivity
+      const testStmt = this.db.db.prepare('SELECT 1 as test');
+      const testResult = await testStmt.first();
+      
+      // Test schedule table
+      const scheduleStmt = this.db.db.prepare('SELECT COUNT(*) as count FROM nfl_schedule');
+      const scheduleResult = await scheduleStmt.first();
+      
+      // Test players table
+      const playersStmt = this.db.db.prepare('SELECT COUNT(*) as count FROM players');
+      const playersResult = await playersStmt.first();
+      
+      // Test parameterized query
+      const paramStmt = this.db.db.prepare('SELECT COUNT(*) as count FROM players WHERE position = ?');
+      const paramResult = await paramStmt.bind('QB').first();
+      
+      // Test utility functions
+      const utilitySchedule = await getNFLSchedule(this.db.db);
+      const utilityPlayers = await this.db.getAllPlayers();
+      
+      // Test cache table
+      let cacheTableExists = false;
+      let cacheCount = 0;
+      try {
+        const cacheStmt = this.db.db.prepare('SELECT COUNT(*) as count FROM fantasy_pros_cache');
+        const cacheResult = await cacheStmt.first();
+        cacheTableExists = true;
+        cacheCount = cacheResult.count;
+      } catch (error) {
+        console.log('Cache table does not exist or error:', error);
       }
-
+      
+      // Test FantasyPros data in players table
+      let fantasyProsStats = {
+        players_with_fantasy_pros_data: 0,
+        players_with_tier: 0,
+        players_with_projected_points: 0,
+        players_with_position_rank: 0,
+        sample_player: null
+      };
+      
+      try {
+        const fantasyProsStmt = this.db.db.prepare(`
+          SELECT COUNT(*) as count FROM players 
+          WHERE fantasy_pros_updated_at IS NOT NULL
+        `);
+        const fantasyProsResult = await fantasyProsStmt.first();
+        fantasyProsStats.players_with_fantasy_pros_data = fantasyProsResult.count;
+        
+        const tierStmt = this.db.db.prepare(`
+          SELECT COUNT(*) as count FROM players 
+          WHERE tier IS NOT NULL AND tier != 0
+        `);
+        const tierResult = await tierStmt.first();
+        fantasyProsStats.players_with_tier = tierResult.count;
+        
+        const projectedStmt = this.db.db.prepare(`
+          SELECT COUNT(*) as count FROM players 
+          WHERE projected_points IS NOT NULL AND projected_points != 0
+        `);
+        const projectedResult = await projectedStmt.first();
+        fantasyProsStats.players_with_projected_points = projectedResult.count;
+        
+        const rankStmt = this.db.db.prepare(`
+          SELECT COUNT(*) as count FROM players 
+          WHERE position_rank IS NOT NULL AND position_rank != 0
+        `);
+        const rankResult = await rankStmt.first();
+        fantasyProsStats.players_with_position_rank = rankResult.count;
+        
+        // Get a sample player with FantasyPros data
+        const sampleStmt = this.db.db.prepare(`
+          SELECT sleeper_id, search_full_name, position, team, 
+                 tier, position_rank, projected_points, value_over_replacement,
+                 fantasy_pros_updated_at
+          FROM players 
+          WHERE fantasy_pros_updated_at IS NOT NULL
+          ORDER BY fantasy_pros_updated_at DESC 
+          LIMIT 1
+        `);
+        const sampleResult = await sampleStmt.first();
+        fantasyProsStats.sample_player = sampleResult;
+      } catch (error) {
+        console.log('FantasyPros data analysis error:', error);
+      }
+      
       return new Response(JSON.stringify({
         success: true,
         message: 'Database tests passed',
         data: {
-          test: testQuery,
-          schedule_count: scheduleQuery,
-          players_count: playersQuery,
-          param_query: paramQuery,
-          utility_schedule_count: schedule.length,
-          utility_players_count: players.length
+          test: testResult,
+          schedule_count: scheduleResult,
+          players_count: playersResult,
+          param_query: paramResult,
+          utility_schedule_count: utilitySchedule.length,
+          utility_players_count: utilityPlayers.length,
+          cache_table_exists: cacheTableExists,
+          cache_count: cacheCount,
+          fantasy_pros_stats: fantasyProsStats
         }
       }), {
         headers: { 'Content-Type': 'application/json' }
       });
     } catch (error) {
-      console.error('Database test failed:', error);
+      console.error('Database test error:', error);
       return new Response(JSON.stringify({
         success: false,
-        error: 'Database test failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+        error: error instanceof Error ? error.message : 'Unknown error'
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -1119,6 +1147,516 @@ export class PlayersHandler {
       });
     } catch (error) {
       console.error('Update matchups with defense error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleClearFantasyProsCache(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const dataType = url.searchParams.get('data_type'); // Optional: clear specific data type
+      
+      await clearFantasyProsCache(this.db.db, dataType || undefined);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: dataType ? `Cleared FantasyPros cache for ${dataType}` : 'Cleared all FantasyPros cache',
+        data: { cleared_type: dataType || 'all' }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Clear FantasyPros cache error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestFantasyProsCache(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const dataType = url.searchParams.get('data_type') || 'projections_QB';
+      const week = url.searchParams.get('week') ? parseInt(url.searchParams.get('week')!) : undefined;
+      const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : 2024;
+      
+      const cached = await getCachedFantasyProsResponse(this.db.db, dataType, week, season);
+      
+      if (cached) {
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Cached FantasyPros response for ${dataType}`,
+          data: {
+            data_type: dataType,
+            week,
+            season,
+            cached_data: cached,
+            sample_player: cached.players?.[0] || null,
+            player_count: cached.players?.length || 0
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `No cached data found for ${dataType}`,
+          data: { data_type: dataType, week, season }
+        }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } catch (error) {
+      console.error('Test FantasyPros cache error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleListFantasyProsCache(request: Request): Promise<Response> {
+    try {
+      const stmt = this.db.db.prepare(`
+        SELECT data_type, week, season, cached_at, 
+               LENGTH(response_data) as data_size
+        FROM fantasy_pros_cache 
+        ORDER BY cached_at DESC
+      `);
+      
+      const result = await stmt.all();
+      const cacheEntries = result.results || [];
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Found ${cacheEntries.length} cached FantasyPros entries`,
+        data: {
+          cache_entries: cacheEntries,
+          total_entries: cacheEntries.length
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('List FantasyPros cache error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleCreateCacheTable(request: Request): Promise<Response> {
+    try {
+      // Create the cache table if it doesn't exist
+      const createTableStmt = this.db.db.prepare(`
+        CREATE TABLE IF NOT EXISTS fantasy_pros_cache (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          data_type TEXT NOT NULL,
+          week INTEGER DEFAULT NULL,
+          season INTEGER NOT NULL DEFAULT 2024,
+          response_data TEXT NOT NULL,
+          cached_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      await createTableStmt.run();
+      
+      // Create indexes
+      const createIndex1Stmt = this.db.db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_fantasy_pros_cache_type_week_season 
+        ON fantasy_pros_cache(data_type, week, season)
+      `);
+      
+      const createIndex2Stmt = this.db.db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_fantasy_pros_cache_cached_at 
+        ON fantasy_pros_cache(cached_at)
+      `);
+      
+      await createIndex1Stmt.run();
+      await createIndex2Stmt.run();
+      
+      // Test the table
+      const testStmt = this.db.db.prepare('SELECT COUNT(*) as count FROM fantasy_pros_cache');
+      const testResult = await testStmt.first();
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Cache table created successfully',
+        data: {
+          table_created: true,
+          cache_count: testResult.count
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Create cache table error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestRawFantasyPros(request: Request): Promise<Response> {
+    try {
+      if (!this.env.FANTASYPROS_API_KEY) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'FantasyPros API key not configured'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Test a single API call to see the raw response
+      const url = 'https://api.fantasypros.com/public/v2/json/nfl/2025/projections?position=QB&week=0';
+      console.log('Testing raw FantasyPros API call to:', url);
+      
+      const response = await fetch(url, {
+        headers: {
+          'X-API-Key': this.env.FANTASYPROS_API_KEY,
+          'Content-Type': 'application/json',
+          'User-Agent': 'Fantasy-Command-Center/1.0',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        return new Response(JSON.stringify({
+          success: false,
+          error: `API Error: ${response.status} ${response.statusText}`,
+          details: errorText
+        }), {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      const data = await response.json();
+      
+      // Extract sample player data
+      const samplePlayer = data.players?.[0] || null;
+      const playerCount = data.players?.length || 0;
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Raw FantasyPros API response',
+        data: {
+          api_url: url,
+          response_status: response.status,
+          player_count: playerCount,
+          sample_player: samplePlayer,
+          sample_player_stats: samplePlayer?.stats || [],
+          response_keys: Object.keys(data),
+          full_response: data
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Test raw FantasyPros error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestStoredFantasyPros(request: Request): Promise<Response> {
+    try {
+      // Get a sample of players with FantasyPros data
+      const stmt = this.db.db.prepare(`
+        SELECT sleeper_id, search_full_name, position, team, 
+               tier, position_rank, projected_points, value_over_replacement,
+               fantasy_pros_updated_at
+        FROM players 
+        WHERE fantasy_pros_updated_at IS NOT NULL
+        ORDER BY fantasy_pros_updated_at DESC 
+        LIMIT 10
+      `);
+      
+      const result = await stmt.all();
+      const players = result.results || [];
+      
+      // Count players with non-null FantasyPros data
+      const nonNullTier = this.db.db.prepare(`
+        SELECT COUNT(*) as count FROM players 
+        WHERE tier IS NOT NULL AND tier != 0
+      `).first();
+      
+      const nonNullProjected = this.db.db.prepare(`
+        SELECT COUNT(*) as count FROM players 
+        WHERE projected_points IS NOT NULL AND projected_points != 0
+      `).first();
+      
+      const nonNullRank = this.db.db.prepare(`
+        SELECT COUNT(*) as count FROM players 
+        WHERE position_rank IS NOT NULL AND position_rank != 0
+      `).first();
+      
+      const [tierCount, projectedCount, rankCount] = await Promise.all([
+        nonNullTier,
+        nonNullProjected,
+        nonNullRank
+      ]);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Stored FantasyPros data analysis',
+        data: {
+          sample_players: players,
+          players_with_tier: tierCount.count,
+          players_with_projected_points: projectedCount.count,
+          players_with_position_rank: rankCount.count,
+          total_players_updated: players.length
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Test stored FantasyPros error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleUploadFantasyProsCSV(request: Request): Promise<Response> {
+    try {
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+      
+      if (!file) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'No file uploaded'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      if (!file.name.toLowerCase().includes('.csv')) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'File must be a CSV'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      const csvContent = await file.text();
+      console.log(`Processing CSV file: ${file.name} (${csvContent.length} characters)`);
+      
+      // Parse CSV data
+      const csvRows = parseFantasyProsCSV(csvContent);
+      console.log(`Parsed ${csvRows.length} rows from CSV`);
+      
+      // Get all players for matching
+      const allPlayers = await this.db.getAllPlayers();
+      console.log(`Found ${allPlayers.length} players in database`);
+      
+      // Match CSV data to players
+      const { matched, unmatched } = matchCSVToPlayers(csvRows, allPlayers);
+      console.log(`Matched ${matched.length} players, ${unmatched.length} unmatched`);
+      
+      // Update players with CSV data
+      if (matched.length > 0) {
+        await updatePlayersWithFantasyProsCSV(this.db.db, matched);
+        console.log(`Successfully updated ${matched.length} players with FantasyPros CSV data`);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Successfully imported FantasyPros CSV data`,
+          data: {
+            file_name: file.name,
+            csv_rows: csvRows.length,
+            matched_count: matched.length,
+            unmatched_count: unmatched.length,
+            unmatched_sample: unmatched.slice(0, 10),
+            matched_sample: matched.slice(0, 5)
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'No players matched from CSV data',
+          data: {
+            file_name: file.name,
+            csv_rows: csvRows.length,
+            unmatched_count: unmatched.length,
+            unmatched_sample: unmatched.slice(0, 10)
+          }
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } catch (error) {
+      console.error('Upload FantasyPros CSV error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestCSVUpload(request: Request): Promise<Response> {
+    try {
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'CSV upload endpoint is working',
+        data: {
+          endpoint: '/upload/fantasy-pros-csv',
+          method: 'POST',
+          content_type: 'multipart/form-data'
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Test CSV upload error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  async handleTestFantasyProsEndpoints(request: Request): Promise<Response> {
+    try {
+      if (!this.env.FANTASYPROS_API_KEY) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'FantasyPros API key not configured'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const apiKey = this.env.FANTASYPROS_API_KEY;
+      const results = [];
+
+      // Test different endpoints
+      const endpoints = [
+        {
+          name: '2025 Week 1 Projections',
+          url: 'https://api.fantasypros.com/public/v2/json/nfl/2025/projections?position=RB&week=1'
+        },
+        {
+          name: '2025 Week 1 Rankings',
+          url: 'https://api.fantasypros.com/public/v2/json/nfl/2025/consensus-rankings?position=RB&week=1'
+        },
+        {
+          name: '2025 Preseason Projections',
+          url: 'https://api.fantasypros.com/public/v2/json/nfl/2025/projections?position=RB&week=0'
+        },
+        {
+          name: '2024 Week 1 Projections (for comparison)',
+          url: 'https://api.fantasypros.com/public/v2/json/nfl/2024/projections?position=RB&week=1'
+        }
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Testing endpoint: ${endpoint.name}`);
+          
+          const response = await fetch(endpoint.url, {
+            headers: {
+              'X-API-Key': apiKey,
+              'Content-Type': 'application/json',
+              'User-Agent': 'Fantasy-Command-Center/1.0',
+            },
+          });
+          
+          const result = {
+            name: endpoint.name,
+            url: endpoint.url,
+            status: response.status,
+            statusText: response.statusText,
+            success: response.ok
+          };
+          
+          if (response.ok) {
+            const data = await response.json();
+            result.data = {
+              has_players: !!data.players,
+              player_count: data.players?.length || 0,
+              sample_player: data.players?.[0] || null,
+              response_keys: Object.keys(data)
+            };
+          } else {
+            const errorText = await response.text();
+            result.error = errorText;
+          }
+          
+          results.push(result);
+          
+          // Add delay between requests
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+        } catch (error) {
+          results.push({
+            name: endpoint.name,
+            url: endpoint.url,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            success: false
+          });
+        }
+      }
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'FantasyPros API endpoint test results',
+        data: {
+          api_key_configured: true,
+          results: results
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Test FantasyPros endpoints error:', error);
       return new Response(JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

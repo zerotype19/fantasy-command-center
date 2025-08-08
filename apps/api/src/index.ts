@@ -131,6 +131,38 @@ export default {
           }
           break;
 
+        case '/test/fantasy-pros-cache':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestFantasyProsCache(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/raw-fantasy-pros':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestRawFantasyPros(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/stored-fantasy-pros':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestStoredFantasyPros(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/list/fantasy-pros-cache':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleListFantasyProsCache(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/nfl/schedule':
           if (request.method === 'GET') {
             response = await playersHandler.handleGetNFLSchedule(request);
@@ -182,6 +214,46 @@ export default {
         case '/sync/matchups-defense':
           if (request.method === 'POST') {
             response = await playersHandler.handleUpdateMatchupsWithDefense(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/clear-fantasy-pros-cache':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleClearFantasyProsCache(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/create-cache-table':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleCreateCacheTable(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/upload/fantasy-pros-csv':
+          if (request.method === 'POST') {
+            response = await playersHandler.handleUploadFantasyProsCSV(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/csv-upload':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestCSVUpload(request);
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/fantasy-pros-endpoints':
+          if (request.method === 'GET') {
+            response = await playersHandler.handleTestFantasyProsEndpoints(request);
           } else {
             response = new Response('Method not allowed', { status: 405 });
           }

@@ -265,6 +265,35 @@ export async function updatePlayerFantasyProsData(db: any, playerUpdates: any[])
   console.log(`Updated ${playerUpdates.length} players with FantasyPros data`);
 }
 
+export async function updatePlayersWithFantasyProsCSV(db: any, playerUpdates: any[]): Promise<void> {
+  if (playerUpdates.length === 0) return;
+
+  const stmt = db.prepare(`
+    UPDATE players SET 
+      fantasy_pros_draft_rank = ?,
+      fantasy_pros_tier = ?,
+      fantasy_pros_position_rank = ?,
+      fantasy_pros_sos_rating = ?,
+      fantasy_pros_ecr_vs_adp = ?,
+      fantasy_pros_csv_updated_at = CURRENT_TIMESTAMP
+    WHERE sleeper_id = ?
+  `);
+
+  const batch = playerUpdates.map(update => 
+    stmt.bind(
+      update.fantasy_pros_draft_rank || null,
+      update.fantasy_pros_tier || null,
+      update.fantasy_pros_position_rank || null,
+      update.fantasy_pros_sos_rating || null,
+      update.fantasy_pros_ecr_vs_adp || null,
+      update.sleeper_id
+    )
+  );
+
+  await db.batch(batch);
+  console.log(`Updated ${playerUpdates.length} players with FantasyPros CSV data`);
+}
+
 export async function getPlayersWithFantasyData(db: any, week?: number, season?: number): Promise<any[]> {
   let query = `
     SELECT p.*, 
@@ -361,4 +390,50 @@ export async function getNFLGamesByTeam(db: any, team: string): Promise<any[]> {
     ORDER BY game_date, kickoff_time
   `).bind(team, team).all();
   return result.results || [];
+}
+
+export async function cacheFantasyProsResponse(db: any, dataType: string, response: any, week?: number, season?: number): Promise<void> {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO fantasy_pros_cache (
+      data_type, week, season, response_data, cached_at
+    ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `);
+  
+  await stmt.bind(
+    dataType,
+    week || null,
+    season || 2024,
+    JSON.stringify(response)
+  ).run();
+  
+  console.log(`Cached FantasyPros ${dataType} response for week ${week}, season ${season}`);
+}
+
+export async function getCachedFantasyProsResponse(db: any, dataType: string, week?: number, season?: number): Promise<any | null> {
+  const stmt = db.prepare(`
+    SELECT response_data, cached_at FROM fantasy_pros_cache 
+    WHERE data_type = ? AND (week = ? OR (week IS NULL AND ? IS NULL)) AND season = ?
+    ORDER BY cached_at DESC LIMIT 1
+  `);
+  
+  const result = await stmt.bind(dataType, week || null, week || null, season || 2024).first();
+  
+  if (result) {
+    console.log(`Found cached FantasyPros ${dataType} response from ${result.cached_at}`);
+    return JSON.parse(result.response_data);
+  }
+  
+  return null;
+}
+
+export async function clearFantasyProsCache(db: any, dataType?: string): Promise<void> {
+  if (dataType) {
+    const stmt = db.prepare(`DELETE FROM fantasy_pros_cache WHERE data_type = ?`);
+    await stmt.bind(dataType).run();
+    console.log(`Cleared FantasyPros cache for ${dataType}`);
+  } else {
+    const stmt = db.prepare(`DELETE FROM fantasy_pros_cache`);
+    await stmt.run();
+    console.log('Cleared all FantasyPros cache');
+  }
 }
