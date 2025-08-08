@@ -16,7 +16,7 @@ interface NFLGame {
   updated_at: string;
 }
 
-export function NFLSchedule() {
+export default function NFLSchedule() {
   const { get, loading, error } = useApi();
   const [games, setGames] = useState<NFLGame[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<number | ''>('');

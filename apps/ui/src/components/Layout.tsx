@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom';
 
 interface LayoutProps {
   children: ReactNode;
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  activeTab?: string;
+  setActiveTab?: (tab: string) => void;
 }
 
-export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
+export default function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const navigate = useNavigate();
 
   const handleTabClick = (tab: string) => {
-    setActiveTab(tab);
+    if (setActiveTab) {
+      setActiveTab(tab);
+    }
     navigate(`/${tab}`);
   };
 
@@ -35,9 +37,9 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             <button
-              onClick={() => handleTabClick('research')}
+              onClick={() => handleTabClick('research-players')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'research'
+                activeTab === 'research-players'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
@@ -45,9 +47,9 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
               🧠 Research Players
             </button>
             <button
-              onClick={() => handleTabClick('schedule')}
+              onClick={() => handleTabClick('nfl-schedule')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'schedule'
+                activeTab === 'nfl-schedule'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
@@ -75,9 +77,9 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
               📊 FantasyPros Admin
             </button>
             <button
-              onClick={() => handleTabClick('team')}
+              onClick={() => handleTabClick('load-my-team')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'team'
+                activeTab === 'load-my-team'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
@@ -85,9 +87,9 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
               🧍‍♂️ Load My Team
             </button>
             <button
-              onClick={() => handleTabClick('settings')}
+              onClick={() => handleTabClick('league')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'settings'
+                activeTab === 'league'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
@@ -99,7 +101,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="flex-1">
         {children}
       </main>
     </div>

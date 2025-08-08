@@ -31,7 +31,7 @@ interface Stats {
   lastUpdate: string | null;
 }
 
-export function Home() {
+export default function Home() {
   const { get, loading, error } = useApi();
   const [stats, setStats] = useState<Stats>({
     playerCount: 0,

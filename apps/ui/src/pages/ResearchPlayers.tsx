@@ -78,7 +78,7 @@ interface TrendingPlayer {
   created_at: string;
 }
 
-export function ResearchPlayers() {
+export default function ResearchPlayers() {
   const { get, loading, error } = useApi();
   const [players, setPlayers] = useState<Player[]>([]);
   const [searchTerm, setSearchTerm] = useState('');

@@ -15,7 +15,7 @@ interface LeagueSettings {
   updated_at: string;
 }
 
-export function League() {
+export default function League() {
   const { get, loading, error } = useApi();
   const [leagueData, setLeagueData] = useState<LeagueSettings | null>(null);
   const [savedLeagueId, setSavedLeagueId] = useState<string>('default');

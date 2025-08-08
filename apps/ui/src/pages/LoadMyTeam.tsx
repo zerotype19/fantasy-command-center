@@ -25,7 +25,7 @@ interface TeamData {
   count: number;
 }
 
-export function LoadMyTeam() {
+export default function LoadMyTeam() {
   const { get, loading, error } = useApi();
   const [leagueId, setLeagueId] = useState('');
   const [teamId, setTeamId] = useState('');
