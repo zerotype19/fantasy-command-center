@@ -5,6 +5,11 @@ export class DatabaseService {
     this.db = db;
   }
 
+  // Getter for database access (needed for FantasyPros caching)
+  getDatabase(): any {
+    return this.db;
+  }
+
   // Player management
   async getAllPlayers(): Promise<any[]> {
     const result = await this.db.prepare(

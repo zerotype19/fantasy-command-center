@@ -140,24 +140,23 @@ async function rateLimitedRequest(url: string, apiKey: string, db?: any, cacheKe
     }
   }
 
-  // Increment daily request count
-  const today = new Date().toISOString().split('T')[0];
-  const countKey = `fantasy_pros_daily_count_${today}`;
-  const currentCount = parseInt(localStorage.getItem(countKey) || '0');
+  // Note: Rate limiting removed for Cloudflare Workers compatibility
+  // The API has built-in rate limiting, so we'll rely on that
+  console.log(`Making FantasyPros API request to: ${url}`);
+  console.log(`API Key provided: ${apiKey ? 'YES' : 'NO'}`);
+  console.log(`API Key length: ${apiKey ? apiKey.length : 'N/A'}`);
+  console.log(`API Key preview: ${apiKey ? apiKey.substring(0, 8) + '...' : 'N/A'}`);
   
-  if (currentCount >= 100) {
-    throw new Error('Daily FantasyPros API limit reached (100 requests)');
-  }
-  
-  localStorage.setItem(countKey, (currentCount + 1).toString());
-  console.log(`Making FantasyPros API request #${currentCount + 1}/100 to: ${url}`);
-  
-  // Add delay to respect rate limits
-  if (currentCount > 0) {
-    const delay = Math.min(1000, currentCount * 100); // Progressive delay
-    console.log(`Rate limiting: waiting ${delay}ms before next request`);
-    await new Promise(resolve => setTimeout(resolve, delay));
-  }
+  // Log the actual request being made
+  console.log(`Making request to: ${url}`);
+  console.log(`Headers being sent:`, {
+    'X-API-Key': apiKey ? `${apiKey.substring(0, 8)}...` : 'undefined',
+    'x-api-key': apiKey ? `${apiKey.substring(0, 8)}...` : 'undefined',
+    'API-Key': apiKey ? `${apiKey.substring(0, 8)}...` : 'undefined',
+    'api-key': apiKey ? `${apiKey.substring(0, 8)}...` : 'undefined',
+    'Content-Type': 'application/json',
+    'User-Agent': 'Fantasy-Command-Center/1.0'
+  });
   
   const response = await fetch(url, {
     headers: {
@@ -187,18 +186,19 @@ async function rateLimitedRequest(url: string, apiKey: string, db?: any, cacheKe
 }
 
 export async function fetchFantasyProsProjections(apiKey: string, week?: number, season?: number, db?: any): Promise<FantasyProsProjection[]> {
-  // Focus on the most important positions to minimize API calls
-  const positions = ['QB', 'RB', 'WR', 'TE']; // Removed K, DST to save API calls
+  // Fetch ALL positions for comprehensive coverage - start with just QB to test
+  const positions = ['QB'];
   let allProjections: FantasyProsProjection[] = [];
   
   for (const position of positions) {
     try {
+      // Try to get week 1 projections first, then fall back to preseason (week 0)
       let url = `${FANTASY_PROS_BASE_URL}/nfl/${season || 2025}/projections?position=${position}`;
       if (week !== undefined) {
         url += `&week=${week}`;
       } else {
-        // Use week=0 for preseason projections if no week specified
-        url += `&week=0`;
+        // Try week 1 first, then fall back to preseason
+        url += `&week=1`;
       }
       console.log(`Making projections request to: ${url}`);
       const data = await rateLimitedRequest(url, apiKey, db, `projections_${position}`, week, season);
@@ -206,20 +206,30 @@ export async function fetchFantasyProsProjections(apiKey: string, week?: number,
       // Transform the response to match our interface
       console.log(`Raw ${position} projections response:`, JSON.stringify(data, null, 2));
       const projections = data.players?.map((item: any) => {
-        // Look for fantasy points in the stats array
-        const stats = Array.isArray(item.stats) ? item.stats : [];
-        const fpts = stats.find((stat: any) => stat.label === 'FPTS' || stat.label === 'Fantasy Points');
+        // Look for fantasy points in the stats object
+        // The API returns stats as an object with keys like 'points', 'points_ppr', etc.
+        const stats = item.stats || {};
+        let projectedPoints = 0;
         
-        console.log(`Processing ${item.name}: stats=`, stats, 'fpts=', fpts);
+        // Try to get the standard fantasy points first
+        if (typeof stats.points === 'number') {
+          projectedPoints = stats.points;
+        } else if (typeof stats.points_ppr === 'number') {
+          projectedPoints = stats.points_ppr;
+        } else if (typeof stats.points_half === 'number') {
+          projectedPoints = stats.points_half;
+        }
+        
+        console.log(`Processing ${item.name}: stats=`, stats, 'projected_points=', projectedPoints);
         
         return {
           player_id: item.fpid?.toString(),
           name: item.name,
           position: item.position_id,
           team: item.team_id,
-          week: week !== undefined ? week : 0,
+          week: week !== undefined ? week : 1,
           season: season || 2025,
-          projected_points: fpts?.value || 0,
+          projected_points: projectedPoints,
           source: 'FantasyPros',
         };
       }) || [];
@@ -236,8 +246,8 @@ export async function fetchFantasyProsProjections(apiKey: string, week?: number,
 }
 
 export async function fetchFantasyProsECR(apiKey: string, week?: number, season?: number, db?: any): Promise<FantasyProsECR[]> {
-  // Focus on the most important positions to minimize API calls
-  const positions = ['QB', 'RB', 'WR', 'TE']; // Removed K, DST to save API calls
+  // Fetch ALL positions for comprehensive coverage - start with just QB to test
+  const positions = ['QB'];
   let allECR: FantasyProsECR[] = [];
   
   for (const position of positions) {

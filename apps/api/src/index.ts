@@ -156,6 +156,111 @@ export default {
           }
           break;
 
+        case '/test/env':
+          if (request.method === 'GET') {
+            response = new Response(JSON.stringify({
+              success: true,
+              data: {
+                FANTASYPROS_API_KEY_exists: !!env.FANTASYPROS_API_KEY,
+                FANTASYPROS_API_KEY_length: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined',
+                available_env_keys: Object.keys(env),
+                env_type: typeof env,
+                env_keys_count: Object.keys(env).length
+              }
+            }), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/fantasy-pros-direct':
+          if (request.method === 'GET') {
+            try {
+              // Make a direct test request to FantasyPros API
+              const testUrl = 'https://api.fantasypros.com/public/v2/json/nfl/2025/projections?position=QB&week=1';
+              console.log('Making direct test request to:', testUrl);
+              console.log('API Key length:', env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined');
+              
+              const testResponse = await fetch(testUrl, {
+                headers: {
+                  'X-API-Key': env.FANTASYPROS_API_KEY || '',
+                  'Content-Type': 'application/json',
+                },
+              });
+              
+              const responseText = await testResponse.text();
+              console.log('Test response status:', testResponse.status);
+              console.log('Test response text:', responseText);
+              
+              response = new Response(JSON.stringify({
+                success: true,
+                data: {
+                  test_url: testUrl,
+                  response_status: testResponse.status,
+                  response_text: responseText,
+                  api_key_length: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined',
+                  api_key_preview: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.substring(0, 8) + '...' : 'undefined'
+                }
+              }), {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            } catch (error) {
+              response = new Response(JSON.stringify({
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                data: {
+                  test_url: 'https://api.fantasypros.com/public/v2/json/nfl/2025/projections?position=QB&week=1',
+                  api_key_length: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined'
+                }
+              }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
+        case '/test/fantasy-pros-service':
+          if (request.method === 'GET') {
+            try {
+              // Test the service function directly
+              const { fetchFantasyProsProjections } = await import('./services/fantasyPros.js');
+              console.log('Testing fetchFantasyProsProjections service function...');
+              
+              const projections = await fetchFantasyProsProjections(env.FANTASYPROS_API_KEY || '', 1, 2025);
+              console.log('Service function result:', projections);
+              
+              response = new Response(JSON.stringify({
+                success: true,
+                data: {
+                  projections_count: projections.length,
+                  projections_sample: projections.slice(0, 3),
+                  api_key_length: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined'
+                }
+              }), {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            } catch (error) {
+              response = new Response(JSON.stringify({
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                data: {
+                  api_key_length: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined'
+                }
+              }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/list/fantasy-pros-cache':
           if (request.method === 'GET') {
             response = await playersHandler.handleListFantasyProsCache(request);
@@ -416,6 +521,13 @@ export default {
         try {
           // Initialize services
           const db = new DatabaseService(env.DB);
+          
+          // Debug: Check what's in the environment
+          console.log('Environment check in scheduled function:');
+          console.log('FANTASYPROS_API_KEY exists:', !!env.FANTASYPROS_API_KEY);
+          console.log('FANTASYPROS_API_KEY length:', env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined');
+          console.log('Available env keys:', Object.keys(env));
+          
           const playersHandler = new PlayersHandler(db, env as any);
           
           // Create a mock request for the FantasyPros sync

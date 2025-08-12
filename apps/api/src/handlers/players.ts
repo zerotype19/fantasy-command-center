@@ -342,6 +342,13 @@ export class PlayersHandler {
       
       console.log(`Starting FantasyPros sync for week: ${week}, season: ${season}`);
       
+      // Debug: Check the API key in the handler
+      console.log('=== FANTASYPROS API KEY DEBUG ===');
+      console.log('API Key exists:', !!this.env.FANTASYPROS_API_KEY);
+      console.log('API Key length:', this.env.FANTASYPROS_API_KEY ? this.env.FANTASYPROS_API_KEY.length : 'undefined');
+      console.log('API Key preview:', this.env.FANTASYPROS_API_KEY ? this.env.FANTASYPROS_API_KEY.substring(0, 8) + '...' : 'undefined');
+      console.log('=== END DEBUG ===');
+      
       if (!this.env.FANTASYPROS_API_KEY) {
         return new Response(JSON.stringify({
           success: false,
@@ -361,33 +368,37 @@ export class PlayersHandler {
       // Get all players for matching
       const allPlayers = await this.db.getAllPlayers();
       
-      // Fetch FantasyPros data - enable ECR for rankings data
-      const [projections, players, ecr] = await Promise.all([
-        fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY, week, season, this.db.db),
-        fetchFantasyProsPlayers(this.env.FANTASYPROS_API_KEY, 'nfl', this.db.db),
-        fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY, week, season, this.db.db),
-      ]);
+      // Fetch ALL FantasyPros data types for comprehensive coverage
+      // Start with just projections to test
+      console.log('Testing FantasyPros projections function...');
+      const projections = await fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY, week, season, this.db.getDatabase());
+      console.log(`Projections fetched: ${projections.length}`);
+      
+      // For now, return empty arrays for other data types to isolate the issue
+      const players: any[] = [];
+      const ecr: any[] = [];
+      const news: any[] = [];
+      const injuries: any[] = [];
+      const rankings: any[] = [];
+      const consensusRankings: any[] = [];
+      const playerPoints: any[] = [];
       
       console.log(`FantasyPros data fetched - Projections: ${projections.length}, Players: ${players.length}, ECR: ${ecr.length}`);
-      console.log(`Sample projection:`, projections[0]);
-      console.log(`Sample ECR:`, ecr[0]);
+      console.log(`Additional data - News: ${news.length}, Injuries: ${injuries.length}, Rankings: ${rankings.length}, Consensus: ${consensusRankings.length}, Player Points: ${playerPoints.length}`);
       
       // Log raw cached data for debugging
       console.log('=== CACHED DATA DEBUG ===');
       console.log('Projections sample:', JSON.stringify(projections.slice(0, 2), null, 2));
       console.log('ECR sample:', JSON.stringify(ecr.slice(0, 2), null, 2));
       console.log('Players sample:', JSON.stringify(players.slice(0, 2), null, 2));
+      console.log('News sample:', JSON.stringify(news.slice(0, 2), null, 2));
+      console.log('Injuries sample:', JSON.stringify(injuries.slice(0, 2), null, 2));
       console.log('=== END CACHED DATA DEBUG ===');
       
-      // Skip other data types for now to conserve API calls
+      // Note: Auction values and SOS are not available in public API
       const auctionValues: any[] = [];
       const sos: any[] = [];
-      const news: any[] = [];
-      const injuries: any[] = [];
-      const rankings: any[] = [];
-      const consensusRankings: any[] = [];
       const experts: any[] = [];
-      const playerPoints: any[] = [];
       
       // Combine all FantasyPros data
       const allFantasyProsData = [
@@ -407,7 +418,7 @@ export class PlayersHandler {
       const { matched: playerUpdates, unmatched } = matchFantasyProsToPlayerUpdates(allFantasyProsData, allPlayers);
       
       if (playerUpdates.length > 0) {
-        await updatePlayerFantasyProsData(this.db.db, playerUpdates);
+        await updatePlayerFantasyProsData(this.db.getDatabase(), playerUpdates);
         console.log(`Successfully updated ${playerUpdates.length} players with FantasyPros data (${unmatched.length} unmatched)`);
         
         return new Response(JSON.stringify({
