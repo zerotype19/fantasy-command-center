@@ -300,38 +300,26 @@ export async function updatePlayersWithFantasyProsCSV(db: any, playerUpdates: an
 }
 
 export async function getPlayersWithFantasyData(db: any, week?: number, season?: number): Promise<any[]> {
+  // Query the players table directly since FantasyPros data is stored there
   let query = `
     SELECT p.*, 
-           MAX(fp.ecr_rank) as ecr_rank, 
-           MAX(fp.projected_points) as projected_points, 
-           MAX(fp.auction_value) as auction_value, 
-           MAX(fp.sos_rank) as sos_rank, 
-           MAX(fp.tier) as tier, 
-           MAX(fp.position_rank) as position_rank, 
-           MAX(fp.value_over_replacement) as value_over_replacement, 
-           MAX(fp.source) as source
+           p.tier,
+           p.projected_points,
+           p.auction_value,
+           p.sos_rank,
+           p.position_rank,
+           p.value_over_replacement,
+           p.fantasy_pros_updated_at
     FROM players p
-    LEFT JOIN fantasy_pros_data fp ON p.sleeper_id = fp.sleeper_id
+    WHERE p.fantasy_pros_updated_at IS NOT NULL
   `;
   
-  const params = [];
-  if (week || season) {
-    query += ' WHERE ';
-    const conditions = [];
-    if (week) {
-      conditions.push('fp.week = ?');
-      params.push(week);
-    }
-    if (season) {
-      conditions.push('fp.season = ?');
-      params.push(season);
-    }
-    query += conditions.join(' AND ');
-  }
+  // Note: week and season filtering removed since data is stored directly in players table
+  // and doesn't have week/season granularity
   
-  query += ' GROUP BY p.sleeper_id ORDER BY p.name';
+  query += ' ORDER BY p.name';
   
-  const result = await db.prepare(query).bind(...params).all();
+  const result = await db.prepare(query).bind().all();
   return result.results || [];
 }
 

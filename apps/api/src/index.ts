@@ -261,6 +261,43 @@ export default {
           }
           break;
 
+        case '/test/fantasy-pros-ecr':
+          if (request.method === 'GET') {
+            try {
+              // Test the ECR service function directly
+              const { fetchFantasyProsECR } = await import('./services/fantasyPros.js');
+              console.log('Testing fetchFantasyProsECR service function...');
+              
+              const ecr = await fetchFantasyProsECR(env.FANTASYPROS_API_KEY || '', 0, 2025);
+              console.log('ECR service function result:', ecr);
+              
+              response = new Response(JSON.stringify({
+                success: true,
+                data: {
+                  ecr_count: ecr.length,
+                  ecr_sample: ecr.slice(0, 3),
+                  api_key_length: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined'
+                }
+              }), {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            } catch (error) {
+              response = new Response(JSON.stringify({
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                data: {
+                  api_key_length: env.FANTASYPROS_API_KEY ? env.FANTASYPROS_API_KEY.length : 'undefined'
+                }
+              }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+          } else {
+            response = new Response('Method not allowed', { status: 405 });
+          }
+          break;
+
         case '/list/fantasy-pros-cache':
           if (request.method === 'GET') {
             response = await playersHandler.handleListFantasyProsCache(request);

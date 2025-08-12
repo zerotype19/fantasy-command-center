@@ -369,14 +369,17 @@ export class PlayersHandler {
       const allPlayers = await this.db.getAllPlayers();
       
       // Fetch ALL FantasyPros data types for comprehensive coverage
-      // Start with just projections to test
-      console.log('Testing FantasyPros projections function...');
+      console.log('Fetching FantasyPros projections...');
       const projections = await fetchFantasyProsProjections(this.env.FANTASYPROS_API_KEY, week, season, this.db.getDatabase());
       console.log(`Projections fetched: ${projections.length}`);
       
-      // For now, return empty arrays for other data types to isolate the issue
+      console.log('Fetching FantasyPros ECR...');
+      const ecr = await fetchFantasyProsECR(this.env.FANTASYPROS_API_KEY, week, season, this.db.getDatabase());
+      console.log(`ECR fetched: ${ecr.length}`);
+      
+      // Temporarily disable other functions to isolate the issue
+      console.log('Temporarily disabling other FantasyPros functions to isolate the issue...');
       const players: any[] = [];
-      const ecr: any[] = [];
       const news: any[] = [];
       const injuries: any[] = [];
       const rankings: any[] = [];
@@ -461,7 +464,7 @@ export class PlayersHandler {
       const week = url.searchParams.get('week') ? parseInt(url.searchParams.get('week')!) : undefined;
       const season = url.searchParams.get('season') ? parseInt(url.searchParams.get('season')!) : undefined;
       
-      const players = await getPlayersWithFantasyData(this.db.db, week, season);
+      const players = await getPlayersWithFantasyData(this.db.getDatabase(), week, season);
       
       return new Response(JSON.stringify({
         success: true,

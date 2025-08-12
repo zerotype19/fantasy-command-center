@@ -186,8 +186,8 @@ async function rateLimitedRequest(url: string, apiKey: string, db?: any, cacheKe
 }
 
 export async function fetchFantasyProsProjections(apiKey: string, week?: number, season?: number, db?: any): Promise<FantasyProsProjection[]> {
-  // Fetch ALL positions for comprehensive coverage - start with just QB to test
-  const positions = ['QB'];
+  // Fetch ALL positions for comprehensive coverage
+  const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
   let allProjections: FantasyProsProjection[] = [];
   
   for (const position of positions) {
@@ -246,8 +246,8 @@ export async function fetchFantasyProsProjections(apiKey: string, week?: number,
 }
 
 export async function fetchFantasyProsECR(apiKey: string, week?: number, season?: number, db?: any): Promise<FantasyProsECR[]> {
-  // Fetch ALL positions for comprehensive coverage - start with just QB to test
-  const positions = ['QB'];
+  // Fetch ALL positions for comprehensive coverage
+  const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
   let allECR: FantasyProsECR[] = [];
   
   for (const position of positions) {
@@ -589,6 +589,10 @@ export function matchFantasyProsToPlayerUpdates(
     } else if (item.rotoworld_id && rotoworldIdMap.has(item.rotoworld_id.toString())) {
       sleeperId = rotoworldIdMap.get(item.rotoworld_id.toString());
       matchMethod = 'rotoworld_id';
+    } else if (item.player_id && gsisIdMap.has(item.player_id.toString())) {
+      // Handle ECR data which has player_id (FantasyPros ID)
+      sleeperId = gsisIdMap.get(item.player_id.toString());
+      matchMethod = 'player_id';
     } else if (item.name) {
       // Fallback to name matching
       const normalizedName = normalizePlayerName(item.name);
